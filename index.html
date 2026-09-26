@@ -9,9 +9,9 @@
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
   body{overflow:hidden}
-  header{position:fixed;top:0;left:0;right:0;height:84px;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:10;padding-top:env(safe-area-inset-top)}
-  header img{height:56px;width:auto;display:block}
-  .step{position:absolute;inset:0;padding:100px 20px 32px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;opacity:0;transform:translateY(40px);pointer-events:none;transition:opacity .35s ease,transform .35s ease}
+  header{position:fixed;top:0;left:0;right:0;height:96px;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:10;padding-top:env(safe-area-inset-top)}
+  header img{height:67px;width:auto;display:block}
+  .step{position:absolute;inset:0;padding:112px 20px 32px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;opacity:0;transform:translateY(40px);pointer-events:none;transition:opacity .35s ease,transform .35s ease}
   .step.active{opacity:1;transform:none;pointer-events:auto}
   .step.leaving{opacity:0;transform:translateY(-40px)}
   .hero{width:min(100%,360px);aspect-ratio:9/16;max-height:52vh;border-radius:20px;overflow:hidden;background:#000;box-shadow:0 12px 40px rgba(0,0,0,.18)}
@@ -31,7 +31,7 @@
   <div class="hero">
     <video src="assets/hero.mp4" autoplay muted loop playsinline></video>
   </div>
-  <h1>Need a favor?</h1>
+  <h1>Need a car favor?</h1>
   <button class="btn" data-next>Get started</button>
 </section>
 
