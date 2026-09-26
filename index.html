@@ -7,14 +7,15 @@
 <style>
   :root{--green:#4a9b3a;--ink:#111;--muted:#666;--bg:#fff}
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
-  body{overflow:hidden}
-  header{position:fixed;top:0;left:0;right:0;height:calc(96px + env(safe-area-inset-top));display:flex;align-items:flex-end;justify-content:center;background:var(--bg);z-index:10;padding-bottom:12px}
+  html,body{margin:0;height:100%;height:100dvh;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  body{overflow:hidden;display:flex;flex-direction:column}
+  main{position:relative;flex:1;min-height:0}
+  header{flex:none;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:calc(10px + env(safe-area-inset-top)) 16px 10px}
   header img{height:67px;width:auto;display:block}
-  .step{position:absolute;inset:0;padding:calc(104px + env(safe-area-inset-top)) 20px calc(56px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:20px;overflow-y:auto;-webkit-overflow-scrolling:touch;opacity:0;transform:translateY(40px);pointer-events:none;transition:opacity .35s ease,transform .35s ease}
+  .step{position:absolute;inset:0;padding:16px 20px 24px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:20px;overflow-y:auto;-webkit-overflow-scrolling:touch;opacity:0;transform:translateY(40px);pointer-events:none;transition:opacity .35s ease,transform .35s ease}
   .step.active{opacity:1;transform:none;pointer-events:auto}
   .step.leaving{opacity:0;transform:translateY(-40px)}
-  .hero{height:min(56vh,640px);aspect-ratio:9/16;width:auto;max-width:100%;flex:none;border-radius:20px;overflow:hidden;background:#000;box-shadow:0 12px 40px rgba(0,0,0,.18)}
+  .hero{height:min(58vh,640px);aspect-ratio:9/16;width:auto;max-width:100%;flex:none;border-radius:20px;overflow:hidden;background:#000;box-shadow:0 12px 40px rgba(0,0,0,.18)}
   .hero video{width:100%;height:100%;object-fit:cover;display:block}
   h1{font-size:28px;line-height:1.15;margin:0;text-align:center;font-weight:800;letter-spacing:-.01em}
   p.sub{margin:0;color:var(--muted);text-align:center;font-size:17px;max-width:32ch}
@@ -33,12 +34,13 @@
   .status{font-size:14px;color:var(--muted);min-height:18px;margin-top:-6px}
   .status.ok{color:var(--green)}
   .status.err{color:#c0392b}
-  .counter{position:fixed;bottom:0;left:0;right:0;padding:10px 0 calc(12px + env(safe-area-inset-bottom));text-align:center;color:var(--muted);font-size:13px;background:var(--bg);z-index:10}
+  .counter{flex:none;padding:8px 0 calc(10px + env(safe-area-inset-bottom));text-align:center;color:var(--muted);font-size:13px;background:var(--bg)}
 </style>
 </head>
 <body>
 <header><img src="assets/logo.jpg" alt="Do Favor. We do favors."></header>
 
+<main>
 <section class="step active" data-step="0">
   <div class="hero">
     <video src="assets/hero.mp4" autoplay muted loop playsinline></video>
@@ -74,6 +76,7 @@
   <button class="btn ghost" data-back>Back</button>
 </section>
 
+</main>
 <div class="counter" id="counter"></div>
 
 <script>
