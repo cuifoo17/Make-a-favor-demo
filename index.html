@@ -70,6 +70,15 @@
   textarea{appearance:none;font:inherit;font-size:calc(17px * var(--ts));color:var(--ink);background:#f4f4f4;border:1.5px solid #e2e2e2;border-radius:12px;padding:14px 16px;width:100%;resize:vertical;min-height:120px;line-height:1.4}
   textarea:focus{outline:none;border-color:var(--green)}
   label:has(textarea){font-weight:600;color:var(--ink);font-size:calc(15px * var(--ts));line-height:1.35}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .choices{gap:10px}
+  .choice{appearance:none;border:1.5px solid #e2e2e2;background:#f4f4f4;border-radius:14px;padding:16px;text-align:left;display:flex;flex-direction:column;gap:4px;cursor:pointer;font:inherit;color:var(--ink);min-height:64px}
+  .choice:active{border-color:var(--green)}
+  .choice .t{font-size:calc(18px * var(--ts));font-weight:700}
+  .choice .d{font-size:calc(14px * var(--ts));color:var(--muted)}
+  .choice[disabled]{opacity:.5}
+  .btn[hidden]{display:none}
+  a.btn{text-decoration:none}
   .counter{flex:none;padding:8px 0 calc(10px + env(safe-area-inset-bottom));text-align:center;color:var(--muted);font-size:calc(13px * var(--ts));background:var(--bg)}
   .ts-sheet{text-align:center;gap:18px}
   .ts-sample{font-size:calc(17px * var(--ts));line-height:1.35;margin:0;color:var(--ink)}
@@ -142,9 +151,35 @@
 </section>
 
 <section class="step" data-step="3">
-  <h1>Page four</h1>
-  <p class="sub">Next question goes here.</p>
+  <h1>How can we reach you?</h1>
+  <div class="form">
+    <div class="row2">
+      <label>First name<input id="firstName" type="text" autocomplete="given-name" autocapitalize="words"></label>
+      <label>Last name<input id="lastName" type="text" autocomplete="family-name" autocapitalize="words"></label>
+    </div>
+    <label>Email<input id="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none"></label>
+    <label>Phone<input id="phone" type="tel" inputmode="tel" autocomplete="tel"></label>
+    <div class="status err" id="contactStatus"></div>
+  </div>
+  <button class="btn" id="contactNext">Continue</button>
   <button class="btn ghost" data-back>Back</button>
+</section>
+
+<section class="step" data-step="4">
+  <h1>What would you like to do?</h1>
+  <div class="form choices">
+    <button type="button" class="choice" data-intent="Schedule appointment"><span class="t">Schedule appointment now</span><span class="d">Pick a time for us to look at your car</span></button>
+    <button type="button" class="choice" data-intent="Schedule call"><span class="t">Schedule a call now</span><span class="d">Talk it through with us first</span></button>
+    <button type="button" class="choice" data-intent="Book oil change"><span class="t">Book oil change now</span><span class="d">Save 10% when you book online</span></button>
+    <div class="status err" id="submitStatus"></div>
+  </div>
+  <button class="btn ghost" data-back>Back</button>
+</section>
+
+<section class="step" data-step="5">
+  <h1 id="doneTitle">You're all set</h1>
+  <p class="sub" id="doneSub">We've got your details and we'll be in touch shortly.</p>
+  <a class="btn" id="doneLink" href="#" target="_blank" rel="noopener" hidden>Continue to booking</a>
 </section>
 
 </main>
@@ -235,6 +270,34 @@
   }
   vinIn.addEventListener('input',()=>{if(vinIn.value.trim().length===17)decodeVin();else{vinStatus.textContent='';vinStatus.className='status';}});
   vinIn.addEventListener('change',decodeVin);
+  const FN="https://us-central1-do-favor-demo.cloudfunctions.net/submitRequest";
+  const BOOKING_LINKS={"Schedule appointment":"","Schedule call":"","Book oil change":""};
+  const g=id=>document.getElementById(id);
+  g('contactNext').addEventListener('click',()=>{
+    const fn=g('firstName').value.trim(),ln=g('lastName').value.trim(),em=g('email').value.trim(),ph=g('phone').value.trim();
+    const st=g('contactStatus');
+    if(!fn||!ln){st.textContent='Please enter your first and last name.';return;}
+    if(!em&&!ph){st.textContent='Please enter an email or a phone number.';return;}
+    st.textContent='';show(i+1);
+  });
+  document.querySelectorAll('.choice').forEach(btn=>btn.addEventListener('click',async()=>{
+    const intent=btn.dataset.intent,st=g('submitStatus');
+    document.querySelectorAll('.choice').forEach(b=>b.disabled=true);
+    st.className='status';st.textContent='Sending…';
+    const payload={firstName:g('firstName').value.trim(),lastName:g('lastName').value.trim(),email:g('email').value.trim(),phone:g('phone').value.trim(),
+      year:yearSel.value,make:makeSel.value,model:modelSel.value,vin:vinIn.value.trim(),issues:[...selected],details:g('details').value.trim(),intent};
+    try{
+      const r=await fetch(FN,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const d=await r.json();
+      if(!r.ok||!d.ok)throw new Error(d.error||'Something went wrong');
+      const link=BOOKING_LINKS[intent];
+      g('doneSub').textContent=link?'Your details are in. Pick a time that works for you.':"We've got your details and we'll be in touch shortly.";
+      const a=g('doneLink');if(link){a.href=link;a.hidden=false;}else{a.hidden=true;}
+      st.textContent='';show(i+1);
+    }catch(e){st.className='status err';st.textContent="Couldn't send that. Please try again.";}
+    finally{document.querySelectorAll('.choice').forEach(b=>b.disabled=false);}
+  }));
+
   const tsModal=document.getElementById('tsModal'),tsRange=document.getElementById('tsRange'),tsHint=document.getElementById('tsHint');
   const TS=[0.9,1.1,1.3,1.55,1.8];
   const tsThumb=document.getElementById('tsThumb');
