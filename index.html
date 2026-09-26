@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Do Favor</title>
 <style>
-  :root{--green:#4a9b3a;--ink:#111;--muted:#666;--bg:#fff}
+  :root{--ts:1;--green:#4a9b3a;--ink:#111;--muted:#666;--bg:#fff}
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;height:100dvh;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
   body{overflow:hidden;display:flex;flex-direction:column}
@@ -17,22 +17,22 @@
   .step.leaving{opacity:0;transform:translateY(-40px)}
   .hero{width:min(100%,360px);aspect-ratio:4/5;flex:none;border-radius:20px;overflow:hidden;background:#000;box-shadow:0 12px 40px rgba(0,0,0,.18)}
   .hero video{width:100%;height:100%;object-fit:cover;object-position:center 35%;display:block}
-  h1{font-size:28px;line-height:1.15;margin:0;text-align:center;font-weight:800;letter-spacing:-.01em}
-  p.sub{margin:0;color:var(--muted);text-align:center;font-size:17px;max-width:32ch}
-  .btn{appearance:none;border:0;background:var(--green);color:#fff;font-size:18px;font-weight:700;padding:16px 28px;border-radius:14px;cursor:pointer;min-height:52px;min-width:200px}
+  h1{font-size:calc(28px * var(--ts));line-height:1.15;margin:0;text-align:center;font-weight:800;letter-spacing:-.01em}
+  p.sub{margin:0;color:var(--muted);text-align:center;font-size:calc(17px * var(--ts));max-width:32ch}
+  .btn{appearance:none;border:0;background:var(--green);color:#fff;font-size:calc(18px * var(--ts));font-weight:700;padding:16px 28px;border-radius:14px;cursor:pointer;min-height:52px;min-width:200px}
   .btn:active{transform:scale(.98)}
   .btn.ghost{background:transparent;color:var(--muted);font-weight:500;min-height:44px;padding:8px 16px}
   .form{width:min(100%,360px);display:flex;flex-direction:column;gap:14px}
   #issues{gap:0}
-  label{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600;color:var(--muted)}
-  select,input{appearance:none;-webkit-appearance:none;font:inherit;font-size:17px;color:var(--ink);background:#f4f4f4;border:1.5px solid #e2e2e2;border-radius:12px;padding:14px 16px;min-height:52px;width:100%}
+  label{display:flex;flex-direction:column;gap:6px;font-size:calc(14px * var(--ts));font-weight:600;color:var(--muted)}
+  select,input{appearance:none;-webkit-appearance:none;font:inherit;font-size:calc(17px * var(--ts));color:var(--ink);background:#f4f4f4;border:1.5px solid #e2e2e2;border-radius:12px;padding:14px 16px;min-height:52px;width:100%}
   select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:40px}
   select:disabled{color:#aaa}
   select:focus,input:focus{outline:none;border-color:var(--green)}
   input{text-transform:uppercase}
   input::placeholder{text-transform:none;color:#aaa}
   .opt{font-weight:400}
-  .status{font-size:14px;color:var(--muted);min-height:18px;margin-top:-6px}
+  .status{font-size:calc(14px * var(--ts));color:var(--muted);min-height:18px;margin-top:-6px}
   .status.ok{color:var(--green)}
   .status.err{color:#c0392b}
   .info{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--green);background:#fff;color:var(--green);font:italic 700 12px Georgia,serif;padding:0;margin-left:4px;vertical-align:-3px;cursor:pointer}
@@ -40,34 +40,41 @@
   .modal[hidden]{display:none}
   .sheet{background:#fff;border-radius:20px;width:min(100%,420px);max-height:85vh;overflow-y:auto;padding:18px 18px 22px;display:flex;flex-direction:column;gap:12px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
   .sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .sheet h2{margin:0;font-size:20px}
-  .sheet p.sub{text-align:left;max-width:none;font-size:15px}
-  .close{appearance:none;border:0;background:#f0f0f0;width:36px;height:36px;border-radius:50%;font-size:22px;line-height:1;cursor:pointer;color:#333;flex:none}
+  .sheet h2{margin:0;font-size:calc(20px * var(--ts))}
+  .sheet p.sub{text-align:left;max-width:none;font-size:calc(15px * var(--ts))}
+  .close{appearance:none;border:0;background:#f0f0f0;width:36px;height:36px;border-radius:50%;font-size:calc(22px * var(--ts));line-height:1;cursor:pointer;color:#333;flex:none}
   .pics{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   figure{margin:0}
   .pics img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:12px;display:block}
-  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:6px}
+  figcaption{font-size:calc(13px * var(--ts));color:var(--muted);text-align:center;margin-top:6px}
   .cat{border-bottom:1px solid #eee}
   .cat:last-of-type{border-bottom:0}
-  .cat-head{appearance:none;border:0;background:transparent;width:100%;display:flex;align-items:center;justify-content:flex-start;gap:8px;padding:14px 4px;min-height:52px;font:inherit;font-size:16px;font-weight:700;color:var(--ink);cursor:pointer;text-align:left}
-  .cat-head .meta{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--muted)}
-  .cat-head .count{background:var(--green);color:#fff;border-radius:999px;padding:2px 8px;font-size:12px}
+  .cat-head{appearance:none;border:0;background:transparent;width:100%;display:flex;align-items:center;justify-content:flex-start;gap:8px;padding:14px 4px;min-height:52px;font:inherit;font-size:calc(16px * var(--ts));font-weight:700;color:var(--ink);cursor:pointer;text-align:left}
+  .cat-head .meta{display:flex;align-items:center;gap:8px;font-size:calc(13px * var(--ts));font-weight:600;color:var(--muted)}
+  .cat-head .count{background:var(--green);color:#fff;border-radius:999px;padding:2px 8px;font-size:calc(12px * var(--ts))}
   .cat-head .count:empty{display:none}
   .cat-head .chev{display:inline-flex;width:26px;height:26px;transition:transform .2s;color:#444}
   .cat-head .chev svg{width:100%;height:100%}
   .cat.open .cat-head .chev{transform:rotate(180deg)}
   .chips{display:none;flex-wrap:wrap;gap:8px;padding:0 4px 14px}
   .cat.open .chips{display:flex}
-  .chip{appearance:none;border:1.5px solid #e2e2e2;background:#f4f4f4;color:var(--ink);font:inherit;font-size:15px;padding:10px 14px;border-radius:999px;min-height:44px;cursor:pointer;text-align:left}
+  .chip{appearance:none;border:1.5px solid #e2e2e2;background:#f4f4f4;color:var(--ink);font:inherit;font-size:calc(15px * var(--ts));padding:10px 14px;border-radius:999px;min-height:44px;cursor:pointer;text-align:left}
   .chip[aria-pressed="true"]{background:var(--green);border-color:var(--green);color:#fff;font-weight:600}
   .chip.hide,.cat.hide{display:none}
   input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none}
-  .noresults{color:var(--muted);font-size:15px;text-align:center;padding:8px}
+  .noresults{color:var(--muted);font-size:calc(15px * var(--ts));text-align:center;padding:8px}
   .noresults[hidden]{display:none}
-  textarea{appearance:none;font:inherit;font-size:17px;color:var(--ink);background:#f4f4f4;border:1.5px solid #e2e2e2;border-radius:12px;padding:14px 16px;width:100%;resize:vertical;min-height:120px;line-height:1.4}
+  textarea{appearance:none;font:inherit;font-size:calc(17px * var(--ts));color:var(--ink);background:#f4f4f4;border:1.5px solid #e2e2e2;border-radius:12px;padding:14px 16px;width:100%;resize:vertical;min-height:120px;line-height:1.4}
   textarea:focus{outline:none;border-color:var(--green)}
-  label:has(textarea){font-weight:600;color:var(--ink);font-size:15px;line-height:1.35}
-  .counter{flex:none;padding:8px 0 calc(10px + env(safe-area-inset-bottom));text-align:center;color:var(--muted);font-size:13px;background:var(--bg)}
+  label:has(textarea){font-weight:600;color:var(--ink);font-size:calc(15px * var(--ts));line-height:1.35}
+  .counter{flex:none;padding:8px 0 calc(10px + env(safe-area-inset-bottom));text-align:center;color:var(--muted);font-size:calc(13px * var(--ts));background:var(--bg)}
+  .ts-sheet{text-align:center;gap:18px}
+  .ts-sample{font-size:calc(17px * var(--ts));line-height:1.35;margin:0;color:var(--ink)}
+  .ts-row{display:flex;align-items:center;gap:12px}
+  .ts-row .a{font-size:14px;color:var(--muted)}
+  .ts-row .A{font-size:24px;font-weight:700;color:var(--muted)}
+  input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:#e2e2e2;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:32px;height:32px;border-radius:50%;background:var(--green);border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.25);cursor:pointer}
 </style>
 </head>
 <body>
@@ -134,6 +141,13 @@
       <figure><img src="assets/vin-windshield.jpg" alt="VIN plate at the base of the windshield"><figcaption>Windshield</figcaption></figure>
       <figure><img src="assets/vin-doorjamb.jpg" alt="VIN on the door jamb sticker"><figcaption>Door jamb</figcaption></figure>
     </div>
+  </div>
+</div>
+<div class="modal" id="tsModal" hidden>
+  <div class="sheet ts-sheet" role="dialog" aria-modal="true" aria-labelledby="tsTitle">
+    <p class="ts-sample" id="tsTitle">Choose a size that is comfortable to read</p>
+    <div class="ts-row"><span class="a">A</span><input type="range" id="tsRange" min="0.85" max="1.5" step="0.05" value="1" aria-label="Text size"><span class="A">A</span></div>
+    <button class="btn" id="tsDone">Looks good</button>
   </div>
 </div>
 <div class="counter" id="counter"></div>
@@ -205,6 +219,13 @@
   }
   vinIn.addEventListener('input',()=>{if(vinIn.value.trim().length===17)decodeVin();else{vinStatus.textContent='';vinStatus.className='status';}});
   vinIn.addEventListener('change',decodeVin);
+  const tsModal=document.getElementById('tsModal'),tsRange=document.getElementById('tsRange');
+  function setTs(v){document.documentElement.style.setProperty('--ts',v);}
+  let saved=null;try{saved=sessionStorage.getItem('ts');}catch(e){}
+  if(saved){setTs(saved);tsRange.value=saved;}else{tsModal.hidden=false;}
+  tsRange.addEventListener('input',()=>setTs(tsRange.value));
+  document.getElementById('tsDone').addEventListener('click',()=>{try{sessionStorage.setItem('ts',tsRange.value);}catch(e){}tsModal.hidden=true;});
+
   const ISSUES={
     "Brakes":["Squeaking or grinding","Replace pads","Replace rotors","Soft or spongy pedal"],
     "Engine":["Check engine light","Won't start","Rough idle or stalling","Overheating"],
