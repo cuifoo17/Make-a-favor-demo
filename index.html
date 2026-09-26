@@ -46,6 +46,14 @@
   figure{margin:0}
   .pics img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:12px;display:block}
   figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:6px}
+  .cat{display:flex;flex-direction:column;gap:8px}
+  .cat h3{margin:0;font-size:15px;font-weight:700;color:var(--ink)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{appearance:none;border:1.5px solid #e2e2e2;background:#f4f4f4;color:var(--ink);font:inherit;font-size:15px;padding:10px 14px;border-radius:999px;min-height:44px;cursor:pointer;text-align:left}
+  .chip[aria-pressed="true"]{background:var(--green);border-color:var(--green);color:#fff;font-weight:600}
+  textarea{appearance:none;font:inherit;font-size:17px;color:var(--ink);background:#f4f4f4;border:1.5px solid #e2e2e2;border-radius:12px;padding:14px 16px;width:100%;resize:vertical;min-height:120px;line-height:1.4}
+  textarea:focus{outline:none;border-color:var(--green)}
+  label:has(textarea){font-weight:600;color:var(--ink);font-size:15px;line-height:1.35}
   .counter{flex:none;padding:8px 0 calc(10px + env(safe-area-inset-bottom));text-align:center;color:var(--muted);font-size:13px;background:var(--bg)}
 </style>
 </head>
@@ -83,7 +91,20 @@
 </section>
 
 <section class="step" data-step="2">
-  <h1>Page three</h1>
+  <h1>What's going on with the car?</h1>
+  <p class="sub">Pick everything that applies.</p>
+  <div class="form" id="issues"></div>
+  <div class="form">
+    <label>Please explain your situation with as much detail as you can. The more we know, the more we can help :)
+      <textarea id="details" rows="5" placeholder="What happened, when it started, any sounds or smells…"></textarea>
+    </label>
+  </div>
+  <button class="btn" data-next>Continue</button>
+  <button class="btn ghost" data-back>Back</button>
+</section>
+
+<section class="step" data-step="3">
+  <h1>Page four</h1>
   <p class="sub">Next question goes here.</p>
   <button class="btn ghost" data-back>Back</button>
 </section>
@@ -168,6 +189,33 @@
   }
   vinIn.addEventListener('input',()=>{if(vinIn.value.trim().length===17)decodeVin();else{vinStatus.textContent='';vinStatus.className='status';}});
   vinIn.addEventListener('change',decodeVin);
+  const ISSUES={
+    "Brakes":["Squeaking or grinding","Replace pads","Replace rotors","Soft or spongy pedal"],
+    "Engine":["Check engine light","Won't start","Rough idle or stalling","Overheating"],
+    "Transmission":["Maintenance / fluid","Slipping or stuttering","Hard shifting"],
+    "Oil & fluids":["Oil change","Oil leak","Coolant leak"],
+    "Battery & electrical":["Dead battery","Alternator","Warning lights on dash","Headlight or taillight out"],
+    "Tires & wheels":["Flat or slow leak","Tire rotation","Pulling to one side (alignment)","Vibration at speed (balancing)"],
+    "Suspension & steering":["Clunking over bumps","Shocks or struts","Steering noise or stiffness"],
+    "AC & heat":["AC not cold","Heat not working"],
+    "Exhaust":["Loud exhaust or muffler"],
+    "Other":["Noise I can't identify","Something else"]
+  };
+  const issuesEl=document.getElementById('issues');
+  const selected=new Set();
+  for(const [cat,items] of Object.entries(ISSUES)){
+    const wrap=document.createElement('div');wrap.className='cat';
+    const h=document.createElement('h3');h.textContent=cat;wrap.appendChild(h);
+    const chips=document.createElement('div');chips.className='chips';
+    items.forEach(t=>{
+      const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=t;b.setAttribute('aria-pressed','false');
+      const key=cat+' - '+t;
+      b.addEventListener('click',()=>{const on=!selected.has(key);on?selected.add(key):selected.delete(key);b.setAttribute('aria-pressed',on);});
+      chips.appendChild(b);
+    });
+    wrap.appendChild(chips);issuesEl.appendChild(wrap);
+  }
+
   const vinModal=document.getElementById('vinModal');
   document.getElementById('vinInfo').addEventListener('click',e=>{e.preventDefault();vinModal.hidden=false;});
   document.getElementById('vinClose').addEventListener('click',()=>vinModal.hidden=true);
