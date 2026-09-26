@@ -10,7 +10,10 @@
   html,body{margin:0;height:100%;height:100dvh;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
   body{overflow:hidden;display:flex;flex-direction:column}
   main{position:relative;flex:1;min-height:0}
-  header{flex:none;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:calc(10px + env(safe-area-inset-top)) 16px 10px}
+  header{flex:none;position:relative;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:calc(10px + env(safe-area-inset-top)) 16px 10px}
+  .ts-btn{position:absolute;right:12px;top:calc(50% + env(safe-area-inset-top)/2);transform:translateY(-50%);appearance:none;border:1.5px solid #e2e2e2;background:#f4f4f4;border-radius:999px;min-width:44px;height:40px;padding:0 10px;display:inline-flex;align-items:baseline;justify-content:center;gap:2px;cursor:pointer;color:var(--ink)}
+  .ts-btn .a{font-size:13px;font-weight:600}
+  .ts-btn .A{font-size:20px;font-weight:800}
   header img{height:67px;width:auto;display:block}
   .step{position:absolute;inset:0;padding:16px 20px 24px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:20px;overflow-y:auto;-webkit-overflow-scrolling:touch;opacity:0;transform:translateY(40px);pointer-events:none;transition:opacity .35s ease,transform .35s ease}
   .step.active{opacity:1;transform:none;pointer-events:auto}
@@ -90,7 +93,7 @@
 </style>
 </head>
 <body>
-<header><img src="assets/logo.jpg" alt="Do Favor. We do favors."></header>
+<header><img src="assets/logo.jpg" alt="Do Favor. We do favors."><button type="button" class="ts-btn" id="tsOpen" aria-label="Text size"><span class="a">A</span><span class="A">A</span></button></header>
 
 <main>
 <section class="step active" data-step="0">
@@ -239,6 +242,7 @@
   let saved=null;try{saved=sessionStorage.getItem('ts');}catch(e){}
   if(saved!==null){setTs(+saved);tsRange.value=saved;}else{setTs(4);tsModal.hidden=false;}
   tsRange.addEventListener('input',()=>{setTs(+tsRange.value);tsHint.classList.add('done');});
+  document.getElementById('tsOpen').addEventListener('click',()=>{tsModal.hidden=false;});
   document.getElementById('tsDone').addEventListener('click',()=>{try{sessionStorage.setItem('ts',tsRange.value);}catch(e){}tsModal.hidden=true;});
 
   const ISSUES={
