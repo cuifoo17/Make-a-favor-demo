@@ -73,8 +73,18 @@
   .ts-row{display:flex;align-items:center;gap:12px}
   .ts-row .a{font-size:14px;color:var(--muted)}
   .ts-row .A{font-size:24px;font-weight:700;color:var(--muted)}
-  input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:#e2e2e2;outline:none}
-  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:32px;height:32px;border-radius:50%;background:var(--green);border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.25);cursor:pointer}
+  .ts-track{flex:1;position:relative;padding:8px 0 16px}
+  input[type=range]{width:100%;display:block;-webkit-appearance:none;appearance:none;height:8px;border-radius:4px;background:repeating-linear-gradient(90deg,#d8d8d8 0 6px,#c4c4c4 6px 8px);outline:none;margin:0;position:relative;z-index:1}
+  .ticks{position:absolute;left:16px;right:16px;bottom:0;display:flex;justify-content:space-between;pointer-events:none}
+  .ticks i{display:block;width:3px;height:10px;border-radius:2px;background:#bbb}
+  .ts-hint{display:flex;align-items:center;justify-content:center;gap:8px;color:var(--muted);font-size:14px;letter-spacing:.04em;text-transform:uppercase;font-weight:600;margin-top:-8px}
+  .ts-hint .l,.ts-hint .r{font-size:26px;line-height:1;font-weight:400;display:inline-block}
+  .ts-hint .l{animation:nudgeL 1.2s ease-in-out infinite}
+  .ts-hint .r{animation:nudgeR 1.2s ease-in-out infinite}
+  .ts-hint.done{opacity:.4}.ts-hint.done .l,.ts-hint.done .r{animation:none}
+  @keyframes nudgeL{0%,100%{transform:translateX(0)}50%{transform:translateX(-8px)}}
+  @keyframes nudgeR{0%,100%{transform:translateX(0)}50%{transform:translateX(8px)}}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:34px;height:34px;border-radius:50%;background:var(--green);border:3px solid #fff;margin-top:0;box-shadow:0 2px 8px rgba(0,0,0,.25);cursor:pointer}
 </style>
 </head>
 <body>
@@ -146,7 +156,8 @@
 <div class="modal" id="tsModal" hidden>
   <div class="sheet ts-sheet" role="dialog" aria-modal="true" aria-labelledby="tsTitle">
     <p class="ts-sample" id="tsTitle">Choose a size that is comfortable to read</p>
-    <div class="ts-row"><span class="a">A</span><input type="range" id="tsRange" min="0.85" max="1.5" step="0.05" value="1" aria-label="Text size"><span class="A">A</span></div>
+    <div class="ts-row"><span class="a">A</span><div class="ts-track"><input type="range" id="tsRange" min="0" max="4" step="1" value="4" aria-label="Text size"><div class="ticks"><i></i><i></i><i></i><i></i><i></i></div></div><span class="A">A</span></div>
+    <div class="ts-hint" id="tsHint"><span class="l">&#8249;</span><span>slide</span><span class="r">&#8250;</span></div>
     <button class="btn" id="tsDone">Looks good</button>
   </div>
 </div>
@@ -219,11 +230,12 @@
   }
   vinIn.addEventListener('input',()=>{if(vinIn.value.trim().length===17)decodeVin();else{vinStatus.textContent='';vinStatus.className='status';}});
   vinIn.addEventListener('change',decodeVin);
-  const tsModal=document.getElementById('tsModal'),tsRange=document.getElementById('tsRange');
-  function setTs(v){document.documentElement.style.setProperty('--ts',v);}
+  const tsModal=document.getElementById('tsModal'),tsRange=document.getElementById('tsRange'),tsHint=document.getElementById('tsHint');
+  const TS=[0.85,1,1.15,1.3,1.5];
+  function setTs(i){document.documentElement.style.setProperty('--ts',TS[i]);}
   let saved=null;try{saved=sessionStorage.getItem('ts');}catch(e){}
-  if(saved){setTs(saved);tsRange.value=saved;}else{tsModal.hidden=false;}
-  tsRange.addEventListener('input',()=>setTs(tsRange.value));
+  if(saved!==null){setTs(+saved);tsRange.value=saved;}else{setTs(4);tsModal.hidden=false;}
+  tsRange.addEventListener('input',()=>{setTs(+tsRange.value);tsHint.classList.add('done');});
   document.getElementById('tsDone').addEventListener('click',()=>{try{sessionStorage.setItem('ts',tsRange.value);}catch(e){}tsModal.hidden=true;});
 
   const ISSUES={
