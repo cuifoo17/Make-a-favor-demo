@@ -153,7 +153,7 @@
 <section class="step" data-step="3">
   <h1>How can we reach you?</h1>
   <div class="form">
-    <label>Name<input id="fullName" type="text" autocomplete="name" autocapitalize="words" placeholder="First and last name"></label>
+    <label>Name<input id="fullName" type="text" autocomplete="name" autocapitalize="words" placeholder="Your name"></label>
     <label>Phone<input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(804) 555-0142"></label>
     <label>Email<input id="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" placeholder="you@example.com"></label>
     <p class="sub small">Phone or email, whichever you prefer. We only need one.</p>
@@ -271,13 +271,13 @@
   const FN="https://us-central1-do-favor-demo.cloudfunctions.net/submitRequest";
   const BOOKING_LINKS={"Schedule appointment":"","Schedule call":"","Book oil change":""};
   const g=id=>document.getElementById(id);
-  const splitName=()=>{const parts=g('fullName').value.trim().split(/\s+/).filter(Boolean);return {firstName:parts[0]||'',lastName:parts.slice(1).join(' ')};};
+  const splitName=()=>{const parts=g('fullName').value.trim().split(/\s+/).filter(Boolean);return {firstName:parts[0]||'',lastName:parts.slice(1).join(' ')||'[omitted]'};};
   const digits=v=>v.replace(/\D/g,'');
   const emailOk=v=>/^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(v);
   g('contactNext').addEventListener('click',()=>{
     const {firstName,lastName}=splitName(),em=g('email').value.trim(),ph=g('phone').value.trim();
     const st=g('contactStatus');
-    if(!firstName||!lastName){st.textContent='Please enter your first and last name.';return;}
+    if(!firstName){st.textContent='Please enter your name.';return;}
     if(!em&&!ph){st.textContent='Please enter a phone number or an email.';return;}
     if(ph){const n=digits(ph).length;if(n<9||n>10){st.textContent='That phone number should be 9 or 10 digits.';return;}}
     if(em&&!emailOk(em)){st.textContent="That email doesn't look right. It should look like name@example.com.";return;}
