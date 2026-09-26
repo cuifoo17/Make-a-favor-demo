@@ -268,7 +268,7 @@
   vinIn.addEventListener('input',()=>{if(vinIn.value.trim().length===17)decodeVin();else{vinStatus.textContent='';vinStatus.className='status';}});
   vinIn.addEventListener('change',decodeVin);
   const FN="https://us-central1-do-favor-demo.cloudfunctions.net/submitRequest";
-  const BOOKING_LINKS={"Schedule appointment":"https://clienthub.getjobber.com/hubs/7d2a8232-2cee-447d-9675-ee332a19774f/public/requests/5220159/new","Schedule call":"https://clienthub.getjobber.com/hubs/7d2a8232-2cee-447d-9675-ee332a19774f/public/requests/5220159/new","Book oil change":"https://clienthub.getjobber.com/hubs/7d2a8232-2cee-447d-9675-ee332a19774f/public/requests/5220159/new"};
+  const BOOKING_LINKS={"Schedule appointment":"https://clienthub.getjobber.com/hubs/7d2a8232-2cee-447d-9675-ee332a19774f/public/requests/5220159/new","Schedule call":"https://clienthub.getjobber.com/hubs/7d2a8232-2cee-447d-9675-ee332a19774f/public/requests/5220552/new","Book oil change":"https://clienthub.getjobber.com/hubs/7d2a8232-2cee-447d-9675-ee332a19774f/public/requests/5220159/new"};
   const g=id=>document.getElementById(id);
   const splitName=()=>{const parts=g('fullName').value.trim().split(/\s+/).filter(Boolean);return {firstName:parts[0]||'',lastName:parts.slice(1).join(' ')||'[omitted]'};};
   const digits=v=>v.replace(/\D/g,'');
