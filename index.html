@@ -151,11 +151,9 @@
 </section>
 
 <section class="step" data-step="3">
-  <h1>How can we reach you?</h1>
+  <h1>What's the best number to reach you?</h1>
   <div class="form">
-    <label>Name<input id="fullName" type="text" autocomplete="name" autocapitalize="words" placeholder="Your name"></label>
     <label>Phone<input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(804) 555-0142"></label>
-    <label>Email<input id="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" placeholder="you@example.com"></label>
     <div class="status err" id="contactStatus"></div>
   </div>
   <button class="btn" id="contactNext">Continue</button>
@@ -164,6 +162,7 @@
 
 <section class="step" data-step="4">
   <h1>What would you like to do?</h1>
+  <p class="sub">You'll pick a time on the next screen.</p>
   <div class="form choices">
     <button type="button" class="choice" data-intent="Schedule appointment"><span class="t">Schedule appointment now</span><span class="d">Pick a time for us to look at your car</span></button>
     <button type="button" class="choice" data-intent="Schedule call"><span class="t">Schedule a call now</span><span class="d">Talk it through with us first</span></button>
@@ -267,99 +266,30 @@
   }
   vinIn.addEventListener('input',()=>{if(vinIn.value.trim().length===17)decodeVin();else{vinStatus.textContent='';vinStatus.className='status';}});
   vinIn.addEventListener('change',decodeVin);
-  const FN="https://us-central1-do-favor-demo.cloudfunctions.net/submitRequest";
+  const FN="https://us-central1-do-favor-demo.cloudfunctions.net/saveIntake";
   const BOOKING_LINKS={"Schedule appointment":"https://clienthub.getjobber.com/hubs/7d2a8232-2cee-447d-9675-ee332a19774f/public/requests/5220159/new","Schedule call":"https://clienthub.getjobber.com/hubs/7d2a8232-2cee-447d-9675-ee332a19774f/public/requests/5220552/new","Book oil change":"https://clienthub.getjobber.com/hubs/7d2a8232-2cee-447d-9675-ee332a19774f/public/requests/5220605/new"};
   const g=id=>document.getElementById(id);
-  const splitName=()=>{const parts=g('fullName').value.trim().split(/\s+/).filter(Boolean);return {firstName:parts[0]||'',lastName:parts.slice(1).join(' ')||'[omitted]'};};
   const digits=v=>v.replace(/\D/g,'');
-  const emailOk=v=>/^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(v);
   g('contactNext').addEventListener('click',()=>{
-    const {firstName,lastName}=splitName(),em=g('email').value.trim(),ph=g('phone').value.trim();
-    const st=g('contactStatus');
-    if(!firstName){st.textContent='Please enter your name.';return;}
+    const ph=g('phone').value.trim(),st=g('contactStatus');
     if(!ph){st.textContent='Please enter your phone number.';return;}
-    {const n=digits(ph).length;if(n<9||n>10){st.textContent='That phone number should be 9 or 10 digits.';return;}}
-    if(!em){st.textContent='Please enter your email.';return;}
-    if(!emailOk(em)){st.textContent="That email doesn't look right. It should look like name@example.com.";return;}
+    const n=digits(ph).length;if(n<9||n>10){st.textContent='That phone number should be 9 or 10 digits.';return;}
     st.textContent='';show(i+1);
   });
   document.querySelectorAll('.choice').forEach(btn=>btn.addEventListener('click',async()=>{
     const intent=btn.dataset.intent,st=g('submitStatus');
     document.querySelectorAll('.choice').forEach(b=>b.disabled=true);
-    st.className='status';st.textContent='Sending…';
-    const payload={...splitName(),email:g('email').value.trim(),phone:g('phone').value.trim(),
-      year:yearSel.value,make:makeSel.value,model:modelSel.value,vin:vinIn.value.trim(),issues:[...selected],details:g('details').value.trim(),intent};
+    st.className='status';st.textContent='One sec\u2026';
+    const payload={phone:g('phone').value.trim(),year:yearSel.value,make:makeSel.value,model:modelSel.value,vin:vinIn.value.trim(),issues:[...selected],details:g('details').value.trim(),intent};
     try{
-      const r=await fetch(FN,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-      const d=await r.json();
-      if(!r.ok||!d.ok)throw new Error(d.error||'Something went wrong');
-      const link=BOOKING_LINKS[intent];
-      g('doneSub').textContent=link?'Your details are in. Pick a time that works for you.':"We've got your details and we'll be in touch shortly.";
-      const a=g('doneLink');if(link){a.href=link;a.hidden=false;}else{a.hidden=true;}
-      st.textContent='';show(i+1);
-    }catch(e){st.className='status err';st.textContent="Couldn't send that. Please try again.";}
-    finally{document.querySelectorAll('.choice').forEach(b=>b.disabled=false);}
+      const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),6000);
+      await fetch(FN,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:ctrl.signal});
+      clearTimeout(t);
+    }catch(e){}
+    const link=BOOKING_LINKS[intent];
+    if(link){window.location.href=link;}
+    else{g('doneLink').hidden=true;st.textContent='';show(i+1);}
   }));
-
-  const tsModal=document.getElementById('tsModal'),tsRange=document.getElementById('tsRange'),tsHint=document.getElementById('tsHint');
-  const TS=[0.9,1.1,1.3,1.55,1.8];
-  const tsThumb=document.getElementById('tsThumb');
-  function setTs(i){document.documentElement.style.setProperty('--ts',TS[i]);tsThumb.style.left=`calc(${i/4} * (100% - var(--thumb)))`;}
-  let saved=null;try{saved=sessionStorage.getItem('ts');}catch(e){}
-  if(saved!==null){setTs(+saved);tsRange.value=saved;}else{setTs(4);tsModal.hidden=false;}
-  tsRange.addEventListener('input',()=>{setTs(+tsRange.value);tsHint.classList.add('done');});
-  document.getElementById('tsOpen').addEventListener('click',()=>{tsModal.hidden=false;});
-  document.getElementById('tsDone').addEventListener('click',()=>{try{sessionStorage.setItem('ts',tsRange.value);}catch(e){}tsModal.hidden=true;});
-
-  const ISSUES={
-    "Brakes":["Squeaking or grinding","Replace pads","Replace rotors","Soft or spongy pedal"],
-    "Engine":["Check engine light","Won't start","Rough idle or stalling","Overheating"],
-    "Transmission":["Maintenance / fluid","Slipping or stuttering","Hard shifting"],
-    "Oil & fluids":["Oil change","Oil leak","Coolant leak"],
-    "Battery & electrical":["Dead battery","Alternator","Warning lights on dash","Headlight or taillight out"],
-    "Tires & wheels":["Flat or slow leak","Tire rotation","Pulling to one side (alignment)","Vibration at speed (balancing)"],
-    "Suspension & steering":["Clunking over bumps","Shocks or struts","Steering noise or stiffness"],
-    "AC & heat":["AC not cold","Heat not working"],
-    "Exhaust":["Loud exhaust or muffler"],
-    "Other":["Noise I can't identify","Something else"]
-  };
-  const issuesEl=document.getElementById('issues');
-  const selected=new Set();
-  const cats=[];
-  for(const [cat,items] of Object.entries(ISSUES)){
-    const wrap=document.createElement('div');wrap.className='cat';
-    const head=document.createElement('button');head.type='button';head.className='cat-head';head.setAttribute('aria-expanded','false');
-    head.innerHTML=`<span>${cat}</span><span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span><span class="count"></span>`;
-    const count=head.querySelector('.count');
-    head.addEventListener('click',()=>{const open=!wrap.classList.contains('open');wrap.classList.toggle('open',open);head.setAttribute('aria-expanded',open);});
-    const chips=document.createElement('div');chips.className='chips';
-    const chipEls=items.map(t=>{
-      const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=t;b.setAttribute('aria-pressed','false');
-      const key=cat+' - '+t;
-      b.addEventListener('click',()=>{
-        const on=!selected.has(key);on?selected.add(key):selected.delete(key);b.setAttribute('aria-pressed',on);
-        const n=items.filter(x=>selected.has(cat+' - '+x)).length;count.textContent=n?n:'';
-      });
-      chips.appendChild(b);return {b,t};
-    });
-    wrap.appendChild(head);wrap.appendChild(chips);issuesEl.appendChild(wrap);
-    cats.push({cat,wrap,head,chipEls});
-  }
-  const noRes=document.createElement('div');noRes.className='noresults';noRes.hidden=true;noRes.textContent='No matches. Pick "Something else" under Other and describe it below.';issuesEl.appendChild(noRes);
-  const search=document.getElementById('issueSearch');
-  search.addEventListener('input',()=>{
-    const q=search.value.trim().toLowerCase();
-    let any=false;
-    cats.forEach(({cat,wrap,head,chipEls})=>{
-      if(!q){wrap.classList.remove('hide');chipEls.forEach(({b})=>b.classList.remove('hide'));wrap.classList.remove('open');head.setAttribute('aria-expanded','false');return;}
-      const catHit=cat.toLowerCase().includes(q);
-      let hits=0;
-      chipEls.forEach(({b,t})=>{const hit=catHit||t.toLowerCase().includes(q);b.classList.toggle('hide',!hit);if(hit)hits++;});
-      wrap.classList.toggle('hide',hits===0);wrap.classList.toggle('open',hits>0);head.setAttribute('aria-expanded',hits>0);
-      if(hits)any=true;
-    });
-    noRes.hidden=!q||any;
-  });
 </script>
 </body>
 </html>

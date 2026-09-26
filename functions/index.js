@@ -1,4 +1,5 @@
 import { onRequest } from "firebase-functions/v2/https";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { defineSecret } from "firebase-functions/params";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
@@ -136,5 +137,102 @@ export const submitRequest = onRequest({ region: REGION, secrets: [CLIENT_ID, CL
     res.json({ ok: true, clientId: client.id, requestId: request.id, url: request.jobberWebUri || null });
   } catch (e) {
     res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
+// ---------- Phone-first flow ----------
+const normPhone = (v) => { let d = String(v || "").replace(/\D/g, ""); if (d.length === 11 && d.startsWith("1")) d = d.slice(1); return d; };
+
+function intakeLines(d) {
+  const car = [d.year, d.make, d.model].filter(Boolean).join(" ");
+  return { car, lines: [
+    car ? `Vehicle: ${car}` : null,
+    d.vin ? `VIN: ${d.vin}` : null,
+    Array.isArray(d.issues) && d.issues.length ? `Issues:\n- ${d.issues.join("\n- ")}` : null,
+    d.details ? `Customer's description:\n${d.details}` : null,
+    d.intent ? `Chose on website: ${d.intent}` : null,
+    "(From the Do Favor website intake)",
+  ].filter(Boolean) };
+}
+
+// Website posts here BEFORE handing the customer to Jobber's booking form. We only need a phone to match later.
+export const saveIntake = onRequest({ region: REGION }, async (req, res) => {
+  cors(req, res);
+  if (req.method === "OPTIONS") return res.status(204).send("");
+  if (req.method !== "POST") return res.status(405).send("POST only");
+  const d = req.body || {};
+  const phone = normPhone(d.phone);
+  if (phone.length < 9 || phone.length > 10) return res.status(400).json({ error: "Phone must be 9 or 10 digits." });
+  const doc = await db.collection("intakes").add({
+    phone, createdAt: Date.now(), attached: {},
+    data: { year: d.year || "", make: d.make || "", model: d.model || "", vin: d.vin || "", issues: Array.isArray(d.issues) ? d.issues.slice(0, 50) : [], details: String(d.details || "").slice(0, 4000), intent: d.intent || "" },
+  });
+  res.json({ ok: true, id: doc.id });
+});
+
+// Jobber posts here. Verify, log, answer within 1s; the Firestore trigger below does the real work.
+export const jobberWebhook = onRequest({ region: REGION, secrets: [CLIENT_SECRET] }, async (req, res) => {
+  try {
+    const raw = req.rawBody ? req.rawBody.toString("utf8") : JSON.stringify(req.body || {});
+    const sig = req.get("X-Jobber-Hmac-SHA256") || "";
+    const digest = crypto.createHmac("sha256", CLIENT_SECRET.value()).update(raw).digest("base64");
+    const verified = sig.length === digest.length && crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(sig));
+    const ev = req.body?.data?.webHookEvent || {};
+    await db.collection("webhook_events").add({ receivedAt: Date.now(), verified, topic: ev.topic || null, itemId: ev.itemId || null, accountId: ev.accountId || null, occurredAt: ev.occurredAt || null, processed: false });
+  } catch (e) { /* always ack */ }
+  res.status(200).send("ok");
+});
+
+async function findIntake(phones) {
+  const keys = [...new Set(phones.map(normPhone).filter((p) => p.length >= 9))];
+  if (!keys.length) return null;
+  const since = Date.now() - 48 * 3600 * 1000;
+  const snap = await db.collection("intakes").where("phone", "in", keys.slice(0, 10)).get();
+  const docs = snap.docs.filter((x) => x.data().createdAt >= since).sort((a, b) => b.data().createdAt - a.data().createdAt);
+  return docs[0] || null;
+}
+
+export const processWebhookEvent = onDocumentCreated({ document: "webhook_events/{id}", region: REGION, secrets: [CLIENT_ID, CLIENT_SECRET] }, async (event) => {
+  const ref = event.data.ref; const ev = event.data.data();
+  const log = async (extra) => ref.set({ processed: true, processedAt: Date.now(), ...extra }, { merge: true });
+  if (!ev.verified) return log({ result: "unverified, ignored" });
+  if (!["CLIENT_CREATE", "REQUEST_CREATE", "JOB_CREATE"].includes(ev.topic) || !ev.itemId) return log({ result: "topic ignored" });
+  try {
+    const token = await accessToken();
+    let phones = [], client = null, item = null;
+    if (ev.topic === "CLIENT_CREATE") {
+      const r = await gql(token, `query($id: EncodedId!) { client(id: $id) { id phones { number } } }`, { id: ev.itemId });
+      client = r?.data?.client; item = client;
+    } else if (ev.topic === "REQUEST_CREATE") {
+      const r = await gql(token, `query($id: EncodedId!) { request(id: $id) { id title client { id phones { number } } } }`, { id: ev.itemId });
+      item = r?.data?.request; client = item?.client;
+    } else {
+      const r = await gql(token, `query($id: EncodedId!) { job(id: $id) { id title client { id phones { number } } } }`, { id: ev.itemId });
+      item = r?.data?.job; client = item?.client;
+    }
+    if (!item || !client) return log({ result: "item not found" });
+    phones = (client.phones || []).map((p) => p.number);
+    const intake = await findIntake(phones);
+    if (!intake) return log({ result: "no matching intake", phones });
+    const key = ev.topic.split("_")[0].toLowerCase(); // client | request | job
+    if (intake.data().attached?.[key] === ev.itemId) return log({ result: "already attached" });
+    const { car, lines } = intakeLines(intake.data().data);
+    const message = lines.join("\n");
+    let out;
+    if (ev.topic === "CLIENT_CREATE") {
+      out = await gql(token, `mutation($id: EncodedId!, $input: ClientCreateNoteInput!) { clientCreateNote(clientId: $id, input: $input) { clientNote { id } userErrors { message } } }`, { id: ev.itemId, input: { message, pinned: true } });
+    } else if (ev.topic === "REQUEST_CREATE") {
+      const title = car && !(item.title || "").includes(car) ? `${car} \u2014 ${item.title || "Request"}` : item.title;
+      await gql(token, `mutation($id: EncodedId!, $input: RequestEditInput!) { requestEdit(requestId: $id, input: $input) { request { id } userErrors { message } } }`, { id: ev.itemId, input: { title } });
+      out = await gql(token, `mutation($id: EncodedId!, $input: RequestCreateNoteInput!) { requestCreateNote(requestId: $id, input: $input) { requestNote { id } userErrors { message } } }`, { id: ev.itemId, input: { message, pinned: true } });
+    } else {
+      const title = car && !(item.title || "").includes(car) ? `${car} \u2014 ${item.title || "Job"}` : item.title;
+      await gql(token, `mutation($id: EncodedId!, $input: JobEditInput!) { jobEdit(jobId: $id, input: $input) { job { id } userErrors { message } } }`, { id: ev.itemId, input: { title } });
+      out = await gql(token, `mutation($id: EncodedId!, $input: JobCreateNoteInput!) { jobCreateNote(jobId: $id, input: $input) { jobNote { id } userErrors { message } } }`, { id: ev.itemId, input: { message, pinned: true } });
+    }
+    await intake.ref.set({ attached: { ...(intake.data().attached || {}), [key]: ev.itemId } }, { merge: true });
+    return log({ result: "attached", intakeId: intake.id, detail: JSON.stringify(out).slice(0, 500) });
+  } catch (e) {
+    return log({ result: "error", error: String(e.message || e) });
   }
 });
