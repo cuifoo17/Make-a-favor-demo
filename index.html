@@ -70,7 +70,7 @@
   textarea{appearance:none;font:inherit;font-size:calc(17px * var(--ts));color:var(--ink);background:#f4f4f4;border:1.5px solid #e2e2e2;border-radius:12px;padding:14px 16px;width:100%;resize:vertical;min-height:120px;line-height:1.4}
   textarea:focus{outline:none;border-color:var(--green)}
   label:has(textarea){font-weight:600;color:var(--ink);font-size:calc(15px * var(--ts));line-height:1.35}
-  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  p.sub.small{font-size:calc(14px * var(--ts));max-width:none;text-align:left;margin-top:-4px}
   .choices{gap:10px}
   .choice{appearance:none;border:1.5px solid #e2e2e2;background:#f4f4f4;border-radius:14px;padding:16px;text-align:left;display:flex;flex-direction:column;gap:4px;cursor:pointer;font:inherit;color:var(--ink);min-height:64px}
   .choice:active{border-color:var(--green)}
@@ -153,12 +153,10 @@
 <section class="step" data-step="3">
   <h1>How can we reach you?</h1>
   <div class="form">
-    <div class="row2">
-      <label>First name<input id="firstName" type="text" autocomplete="given-name" autocapitalize="words"></label>
-      <label>Last name<input id="lastName" type="text" autocomplete="family-name" autocapitalize="words"></label>
-    </div>
-    <label>Email<input id="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none"></label>
-    <label>Phone<input id="phone" type="tel" inputmode="tel" autocomplete="tel"></label>
+    <label>Name<input id="fullName" type="text" autocomplete="name" autocapitalize="words" placeholder="First and last name"></label>
+    <label>Phone<input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(804) 555-0142"></label>
+    <label>Email<input id="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" placeholder="you@example.com"></label>
+    <p class="sub small">Phone or email, whichever you prefer. We only need one.</p>
     <div class="status err" id="contactStatus"></div>
   </div>
   <button class="btn" id="contactNext">Continue</button>
@@ -273,18 +271,23 @@
   const FN="https://us-central1-do-favor-demo.cloudfunctions.net/submitRequest";
   const BOOKING_LINKS={"Schedule appointment":"","Schedule call":"","Book oil change":""};
   const g=id=>document.getElementById(id);
+  const splitName=()=>{const parts=g('fullName').value.trim().split(/\s+/).filter(Boolean);return {firstName:parts[0]||'',lastName:parts.slice(1).join(' ')};};
+  const digits=v=>v.replace(/\D/g,'');
+  const emailOk=v=>/^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(v);
   g('contactNext').addEventListener('click',()=>{
-    const fn=g('firstName').value.trim(),ln=g('lastName').value.trim(),em=g('email').value.trim(),ph=g('phone').value.trim();
+    const {firstName,lastName}=splitName(),em=g('email').value.trim(),ph=g('phone').value.trim();
     const st=g('contactStatus');
-    if(!fn||!ln){st.textContent='Please enter your first and last name.';return;}
-    if(!em&&!ph){st.textContent='Please enter an email or a phone number.';return;}
+    if(!firstName||!lastName){st.textContent='Please enter your first and last name.';return;}
+    if(!em&&!ph){st.textContent='Please enter a phone number or an email.';return;}
+    if(ph){const n=digits(ph).length;if(n<9||n>10){st.textContent='That phone number should be 9 or 10 digits.';return;}}
+    if(em&&!emailOk(em)){st.textContent="That email doesn't look right. It should look like name@example.com.";return;}
     st.textContent='';show(i+1);
   });
   document.querySelectorAll('.choice').forEach(btn=>btn.addEventListener('click',async()=>{
     const intent=btn.dataset.intent,st=g('submitStatus');
     document.querySelectorAll('.choice').forEach(b=>b.disabled=true);
     st.className='status';st.textContent='Sending…';
-    const payload={firstName:g('firstName').value.trim(),lastName:g('lastName').value.trim(),email:g('email').value.trim(),phone:g('phone').value.trim(),
+    const payload={...splitName(),email:g('email').value.trim(),phone:g('phone').value.trim(),
       year:yearSel.value,make:makeSel.value,model:modelSel.value,vin:vinIn.value.trim(),issues:[...selected],details:g('details').value.trim(),intent};
     try{
       const r=await fetch(FN,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
