@@ -31,6 +31,9 @@
   input{text-transform:uppercase}
   input::placeholder{text-transform:none;color:#aaa}
   .opt{font-weight:400}
+  .status{font-size:14px;color:var(--muted);min-height:18px;margin-top:-6px}
+  .status.ok{color:var(--green)}
+  .status.err{color:#c0392b}
   .counter{position:fixed;bottom:calc(14px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;color:var(--muted);font-size:13px}
 </style>
 </head>
@@ -55,11 +58,12 @@
       <select id="make"><option value="">Select make</option></select>
     </label>
     <label>Model
-      <select id="model" disabled><option value="">Select make first</option></select>
+      <select id="model" disabled><option value="">Select year and make first</option></select>
     </label>
     <label>VIN <span class="opt">(optional)</span>
       <input id="vin" type="text" inputmode="text" autocapitalize="characters" autocomplete="off" maxlength="17" placeholder="17 characters">
     </label>
+    <div class="status" id="vinStatus"></div>
   </div>
   <button class="btn" data-next>Continue</button>
   <button class="btn ghost" data-back>Back</button>
@@ -90,38 +94,56 @@
     if(e.target.closest('[data-back]'))show(i-1);
   });
   counter.textContent=`1 / ${steps.length}`;
-  const models={
-    Acura:["ILX","Integra","MDX","RDX","TLX"],
-    Audi:["A3","A4","A6","Q3","Q5","Q7"],
-    BMW:["3 Series","5 Series","X1","X3","X5"],
-    Chevrolet:["Camaro","Colorado","Equinox","Malibu","Silverado","Tahoe","Traverse"],
-    Dodge:["Challenger","Charger","Durango"],
-    Ford:["Bronco","Escape","Explorer","F-150","Focus","Fusion","Mustang"],
-    GMC:["Acadia","Sierra","Terrain","Yukon"],
-    Honda:["Accord","Civic","CR-V","HR-V","Odyssey","Pilot"],
-    Hyundai:["Elantra","Kona","Santa Fe","Sonata","Tucson"],
-    Jeep:["Cherokee","Grand Cherokee","Wrangler"],
-    Kia:["Forte","K5","Sorento","Soul","Sportage","Telluride"],
-    Lexus:["ES","IS","NX","RX"],
-    Mazda:["CX-5","CX-30","Mazda3","Mazda6"],
-    "Mercedes-Benz":["C-Class","E-Class","GLC","GLE"],
-    Nissan:["Altima","Frontier","Pathfinder","Rogue","Sentra"],
-    Ram:["1500","2500"],
-    Subaru:["Crosstrek","Forester","Impreza","Outback"],
-    Tesla:["Model 3","Model S","Model X","Model Y"],
-    Toyota:["4Runner","Camry","Corolla","Highlander","RAV4","Tacoma","Tundra"],
-    Volkswagen:["Atlas","Golf","Jetta","Tiguan"],
-    Other:["Other"]
-  };
-  const yearSel=document.getElementById('year'),makeSel=document.getElementById('make'),modelSel=document.getElementById('model');
+  const MAKES=["Acura","Alfa Romeo","Audi","BMW","Buick","Cadillac","Chevrolet","Chrysler","Dodge","Fiat","Ford","Genesis","GMC","Honda","Hyundai","Infiniti","Jaguar","Jeep","Kia","Land Rover","Lexus","Lincoln","Lucid","Maserati","Mazda","Mercedes-Benz","Mini","Mitsubishi","Nissan","Polestar","Porsche","Ram","Rivian","Subaru","Tesla","Toyota","Volkswagen","Volvo"];
+  const API="https://vpic.nhtsa.dot.gov/api/vehicles/";
+  const yearSel=document.getElementById('year'),makeSel=document.getElementById('make'),modelSel=document.getElementById('model'),vinIn=document.getElementById('vin'),vinStatus=document.getElementById('vinStatus');
   for(let y=2026;y>=1990;y--)yearSel.add(new Option(y,y));
-  Object.keys(models).forEach(m=>makeSel.add(new Option(m,m)));
-  makeSel.addEventListener('change',()=>{
-    modelSel.innerHTML='<option value="">Select model</option>';
-    (models[makeSel.value]||[]).forEach(m=>modelSel.add(new Option(m,m)));
-    modelSel.disabled=!makeSel.value;
-  });
-
+  MAKES.forEach(m=>makeSel.add(new Option(m,m)));
+  let modelReq=0;
+  async function loadModels(preselect){
+    const y=yearSel.value,m=makeSel.value;
+    modelSel.innerHTML='';modelSel.disabled=true;
+    if(!y||!m){modelSel.add(new Option('Select year and make first',''));return;}
+    modelSel.add(new Option('Loading models…',''));
+    const req=++modelReq;
+    try{
+      const r=await fetch(API+`GetModelsForMakeYear/make/${encodeURIComponent(m)}/modelyear/${y}?format=json`);
+      const d=await r.json();
+      if(req!==modelReq)return;
+      const names=[...new Set(d.Results.map(x=>x.Model_Name.trim()))].sort((a,b)=>a.localeCompare(b));
+      modelSel.innerHTML='';modelSel.add(new Option('Select model',''));
+      names.forEach(n=>modelSel.add(new Option(n,n)));
+      if(preselect&&!names.some(n=>n.toLowerCase()===preselect.toLowerCase()))modelSel.add(new Option(preselect,preselect));
+      modelSel.add(new Option('Other','Other'));
+      if(preselect){const o=[...modelSel.options].find(o=>o.value.toLowerCase()===preselect.toLowerCase());if(o)modelSel.value=o.value;}
+      modelSel.disabled=false;
+    }catch(e){
+      if(req!==modelReq)return;
+      modelSel.innerHTML='';modelSel.add(new Option('Select model',''));modelSel.add(new Option('Other','Other'));modelSel.disabled=false;
+    }
+  }
+  yearSel.addEventListener('change',()=>loadModels());
+  makeSel.addEventListener('change',()=>loadModels());
+  function titleCase(s){return s.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()).replace(/\bBmw\b/,'BMW').replace(/\bGmc\b/,'GMC').replace(/\bRam\b/,'Ram')}
+  async function decodeVin(){
+    const vin=vinIn.value.trim().toUpperCase();
+    vinIn.value=vin;
+    if(vin.length!==17){vinStatus.textContent='';vinStatus.className='status';return;}
+    vinStatus.textContent='Looking up VIN…';vinStatus.className='status';
+    try{
+      const r=await fetch(API+`DecodeVinValues/${vin}?format=json`);
+      const x=(await r.json()).Results[0];
+      if(!x.Make||!x.ModelYear){vinStatus.textContent="Couldn't read that VIN. You can still pick your car above.";vinStatus.className='status err';return;}
+      const make=MAKES.find(m=>m.toLowerCase()===x.Make.toLowerCase())||titleCase(x.Make);
+      if(![...makeSel.options].some(o=>o.value===make))makeSel.add(new Option(make,make));
+      if(![...yearSel.options].some(o=>o.value==x.ModelYear))yearSel.add(new Option(x.ModelYear,x.ModelYear));
+      yearSel.value=x.ModelYear;makeSel.value=make;
+      await loadModels(x.Model);
+      vinStatus.textContent=`Found: ${x.ModelYear} ${make} ${x.Model||''}`.trim();vinStatus.className='status ok';
+    }catch(e){vinStatus.textContent="Couldn't look up that VIN right now.";vinStatus.className='status err';}
+  }
+  vinIn.addEventListener('input',()=>{if(vinIn.value.trim().length===17)decodeVin();else{vinStatus.textContent='';vinStatus.className='status';}});
+  vinIn.addEventListener('change',decodeVin);
 </script>
 </body>
 </html>
