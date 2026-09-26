@@ -94,7 +94,8 @@ export const submitRequest = onRequest({ region: REGION, secrets: [CLIENT_ID, CL
   if (req.method !== "POST") return res.status(405).send("POST only");
   try {
     const d = req.body || {};
-    const firstName = String(d.firstName || "").trim(), lastName = String(d.lastName || "").trim();
+    const tc = (v) => String(v || "").trim().toLowerCase().replace(/(^|[\s'-])\S/g, (m) => m.toUpperCase());
+    const firstName = tc(d.firstName), lastName = d.lastName === "[omitted]" ? "[omitted]" : tc(d.lastName);
     const email = String(d.email || "").trim(), phone = String(d.phone || "").trim();
     if (!firstName || !lastName || (!email && !phone)) return res.status(400).json({ error: "Name and an email or phone are required." });
     const token = await accessToken();
