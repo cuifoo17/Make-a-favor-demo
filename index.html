@@ -46,11 +46,21 @@
   figure{margin:0}
   .pics img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:12px;display:block}
   figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:6px}
-  .cat{display:flex;flex-direction:column;gap:8px}
-  .cat h3{margin:0;font-size:15px;font-weight:700;color:var(--ink)}
-  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .cat{border:1.5px solid #e2e2e2;border-radius:12px;overflow:hidden;background:#fff}
+  .cat-head{appearance:none;border:0;background:#f4f4f4;width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;min-height:52px;font:inherit;font-size:16px;font-weight:700;color:var(--ink);cursor:pointer;text-align:left}
+  .cat-head .meta{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--muted)}
+  .cat-head .count{background:var(--green);color:#fff;border-radius:999px;padding:2px 8px;font-size:12px}
+  .cat-head .count:empty{display:none}
+  .cat-head .chev{transition:transform .2s;color:#999}
+  .cat.open .cat-head .chev{transform:rotate(180deg)}
+  .chips{display:none;flex-wrap:wrap;gap:8px;padding:12px}
+  .cat.open .chips{display:flex}
   .chip{appearance:none;border:1.5px solid #e2e2e2;background:#f4f4f4;color:var(--ink);font:inherit;font-size:15px;padding:10px 14px;border-radius:999px;min-height:44px;cursor:pointer;text-align:left}
   .chip[aria-pressed="true"]{background:var(--green);border-color:var(--green);color:#fff;font-weight:600}
+  .chip.hide,.cat.hide{display:none}
+  input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none}
+  .noresults{color:var(--muted);font-size:15px;text-align:center;padding:8px}
+  .noresults[hidden]{display:none}
   textarea{appearance:none;font:inherit;font-size:17px;color:var(--ink);background:#f4f4f4;border:1.5px solid #e2e2e2;border-radius:12px;padding:14px 16px;width:100%;resize:vertical;min-height:120px;line-height:1.4}
   textarea:focus{outline:none;border-color:var(--green)}
   label:has(textarea){font-weight:600;color:var(--ink);font-size:15px;line-height:1.35}
@@ -93,6 +103,9 @@
 <section class="step" data-step="2">
   <h1>What's going on with the car?</h1>
   <p class="sub">Pick everything that applies.</p>
+  <div class="form">
+    <input id="issueSearch" type="search" placeholder="Search issues, e.g. brakes, noise, oil" autocomplete="off" autocorrect="off" autocapitalize="none">
+  </div>
   <div class="form" id="issues"></div>
   <div class="form">
     <label>Please explain your situation with as much detail as you can. The more we know, the more we can help :)
@@ -203,24 +216,41 @@
   };
   const issuesEl=document.getElementById('issues');
   const selected=new Set();
+  const cats=[];
   for(const [cat,items] of Object.entries(ISSUES)){
     const wrap=document.createElement('div');wrap.className='cat';
-    const h=document.createElement('h3');h.textContent=cat;wrap.appendChild(h);
+    const head=document.createElement('button');head.type='button';head.className='cat-head';head.setAttribute('aria-expanded','false');
+    head.innerHTML=`<span>${cat}</span><span class="meta"><span class="count"></span><span class="chev">&#9662;</span></span>`;
+    const count=head.querySelector('.count');
+    head.addEventListener('click',()=>{const open=!wrap.classList.contains('open');wrap.classList.toggle('open',open);head.setAttribute('aria-expanded',open);});
     const chips=document.createElement('div');chips.className='chips';
-    items.forEach(t=>{
+    const chipEls=items.map(t=>{
       const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=t;b.setAttribute('aria-pressed','false');
       const key=cat+' - '+t;
-      b.addEventListener('click',()=>{const on=!selected.has(key);on?selected.add(key):selected.delete(key);b.setAttribute('aria-pressed',on);});
-      chips.appendChild(b);
+      b.addEventListener('click',()=>{
+        const on=!selected.has(key);on?selected.add(key):selected.delete(key);b.setAttribute('aria-pressed',on);
+        const n=items.filter(x=>selected.has(cat+' - '+x)).length;count.textContent=n?n:'';
+      });
+      chips.appendChild(b);return {b,t};
     });
-    wrap.appendChild(chips);issuesEl.appendChild(wrap);
+    wrap.appendChild(head);wrap.appendChild(chips);issuesEl.appendChild(wrap);
+    cats.push({cat,wrap,head,chipEls});
   }
-
-  const vinModal=document.getElementById('vinModal');
-  document.getElementById('vinInfo').addEventListener('click',e=>{e.preventDefault();vinModal.hidden=false;});
-  document.getElementById('vinClose').addEventListener('click',()=>vinModal.hidden=true);
-  vinModal.addEventListener('click',e=>{if(e.target===vinModal)vinModal.hidden=true;});
-
+  const noRes=document.createElement('div');noRes.className='noresults';noRes.hidden=true;noRes.textContent='No matches. Pick "Something else" under Other and describe it below.';issuesEl.appendChild(noRes);
+  const search=document.getElementById('issueSearch');
+  search.addEventListener('input',()=>{
+    const q=search.value.trim().toLowerCase();
+    let any=false;
+    cats.forEach(({cat,wrap,head,chipEls})=>{
+      if(!q){wrap.classList.remove('hide');chipEls.forEach(({b})=>b.classList.remove('hide'));wrap.classList.remove('open');head.setAttribute('aria-expanded','false');return;}
+      const catHit=cat.toLowerCase().includes(q);
+      let hits=0;
+      chipEls.forEach(({b,t})=>{const hit=catHit||t.toLowerCase().includes(q);b.classList.toggle('hide',!hit);if(hit)hits++;});
+      wrap.classList.toggle('hide',hits===0);wrap.classList.toggle('open',hits>0);head.setAttribute('aria-expanded',hits>0);
+      if(hits)any=true;
+    });
+    noRes.hidden=!q||any;
+  });
 </script>
 </body>
 </html>
