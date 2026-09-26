@@ -104,7 +104,8 @@ export const submitRequest = onRequest({ region: REGION, secrets: [CLIENT_ID, CL
     }`, { input: {
       firstName, lastName,
       emails: email ? [{ description: "MAIN", primary: true, address: email }] : [],
-      phones: phone ? [{ description: "MAIN", primary: true, number: phone }] : [],
+      phones: phone ? [{ description: "MOBILE", primary: true, number: phone, smsAllowed: true }] : [],
+      sourceAttribution: { sourceText: "Do Favor website" },
     }});
     const client = cRes?.data?.clientCreate?.client;
     if (!client) return res.status(502).json({ error: "clientCreate failed", detail: cRes });
@@ -114,18 +115,24 @@ export const submitRequest = onRequest({ region: REGION, secrets: [CLIENT_ID, CL
     const lines = [
       car ? `Vehicle: ${car}` : null,
       d.vin ? `VIN: ${d.vin}` : null,
-      Array.isArray(d.issues) && d.issues.length ? `Issues: ${d.issues.join("; ")}` : null,
-      d.details ? `Details: ${d.details}` : null,
-      d.intent ? `Wants: ${d.intent}` : null,
+      Array.isArray(d.issues) && d.issues.length ? `Issues:\n- ${d.issues.join("\n- ")}` : null,
+      d.details ? `Customer's description:\n${d.details}` : null,
+      d.intent ? `Wants to: ${d.intent}` : null,
     ].filter(Boolean);
 
     const rRes = await gql(token, `mutation($input: RequestCreateInput!) {
-      requestCreate(input: $input) { request { id title } userErrors { message path } }
-    }`, { input: { clientId: client.id, title, details: lines.join("\n") } });
+      requestCreate(input: $input) { request { id title jobberWebUri } userErrors { message path } }
+    }`, { input: { clientId: client.id, title, lineItems: [], formIds: [] } });
     const request = rRes?.data?.requestCreate?.request;
     if (!request) return res.status(502).json({ error: "requestCreate failed", detail: rRes, clientId: client.id });
 
-    res.json({ ok: true, clientId: client.id, requestId: request.id });
+    if (lines.length) {
+      await gql(token, `mutation($requestId: EncodedId!, $input: RequestCreateNoteInput!) {
+        requestCreateNote(requestId: $requestId, input: $input) { requestNote { id } userErrors { message path } }
+      }`, { requestId: request.id, input: { message: lines.join("\n"), pinned: true } });
+    }
+
+    res.json({ ok: true, clientId: client.id, requestId: request.id, url: request.jobberWebUri || null });
   } catch (e) {
     res.status(500).json({ error: String(e.message || e) });
   }
