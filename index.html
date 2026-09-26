@@ -22,6 +22,15 @@
   .btn{appearance:none;border:0;background:var(--green);color:#fff;font-size:18px;font-weight:700;padding:16px 28px;border-radius:14px;cursor:pointer;min-height:52px;min-width:200px}
   .btn:active{transform:scale(.98)}
   .btn.ghost{background:transparent;color:var(--muted);font-weight:500;min-height:44px;padding:8px 16px}
+  .form{width:min(100%,360px);display:flex;flex-direction:column;gap:14px}
+  label{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600;color:var(--muted)}
+  select,input{appearance:none;-webkit-appearance:none;font:inherit;font-size:17px;color:var(--ink);background:#f4f4f4;border:1.5px solid #e2e2e2;border-radius:12px;padding:14px 16px;min-height:52px;width:100%}
+  select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:40px}
+  select:disabled{color:#aaa}
+  select:focus,input:focus{outline:none;border-color:var(--green)}
+  input{text-transform:uppercase}
+  input::placeholder{text-transform:none;color:#aaa}
+  .opt{font-weight:400}
   .counter{position:fixed;bottom:calc(14px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;color:var(--muted);font-size:13px}
 </style>
 </head>
@@ -37,8 +46,28 @@
 </section>
 
 <section class="step" data-step="1">
-  <h1>Page two</h1>
-  <p class="sub">This is where the first question goes. We'll fill it in together.</p>
+  <h1>Tell us about your car</h1>
+  <div class="form">
+    <label>Year
+      <select id="year"><option value="">Select year</option></select>
+    </label>
+    <label>Make
+      <select id="make"><option value="">Select make</option></select>
+    </label>
+    <label>Model
+      <select id="model" disabled><option value="">Select make first</option></select>
+    </label>
+    <label>VIN <span class="opt">(optional)</span>
+      <input id="vin" type="text" inputmode="text" autocapitalize="characters" autocomplete="off" maxlength="17" placeholder="17 characters">
+    </label>
+  </div>
+  <button class="btn" data-next>Continue</button>
+  <button class="btn ghost" data-back>Back</button>
+</section>
+
+<section class="step" data-step="2">
+  <h1>Page three</h1>
+  <p class="sub">Next question goes here.</p>
   <button class="btn ghost" data-back>Back</button>
 </section>
 
@@ -61,6 +90,38 @@
     if(e.target.closest('[data-back]'))show(i-1);
   });
   counter.textContent=`1 / ${steps.length}`;
+  const models={
+    Acura:["ILX","Integra","MDX","RDX","TLX"],
+    Audi:["A3","A4","A6","Q3","Q5","Q7"],
+    BMW:["3 Series","5 Series","X1","X3","X5"],
+    Chevrolet:["Camaro","Colorado","Equinox","Malibu","Silverado","Tahoe","Traverse"],
+    Dodge:["Challenger","Charger","Durango"],
+    Ford:["Bronco","Escape","Explorer","F-150","Focus","Fusion","Mustang"],
+    GMC:["Acadia","Sierra","Terrain","Yukon"],
+    Honda:["Accord","Civic","CR-V","HR-V","Odyssey","Pilot"],
+    Hyundai:["Elantra","Kona","Santa Fe","Sonata","Tucson"],
+    Jeep:["Cherokee","Grand Cherokee","Wrangler"],
+    Kia:["Forte","K5","Sorento","Soul","Sportage","Telluride"],
+    Lexus:["ES","IS","NX","RX"],
+    Mazda:["CX-5","CX-30","Mazda3","Mazda6"],
+    "Mercedes-Benz":["C-Class","E-Class","GLC","GLE"],
+    Nissan:["Altima","Frontier","Pathfinder","Rogue","Sentra"],
+    Ram:["1500","2500"],
+    Subaru:["Crosstrek","Forester","Impreza","Outback"],
+    Tesla:["Model 3","Model S","Model X","Model Y"],
+    Toyota:["4Runner","Camry","Corolla","Highlander","RAV4","Tacoma","Tundra"],
+    Volkswagen:["Atlas","Golf","Jetta","Tiguan"],
+    Other:["Other"]
+  };
+  const yearSel=document.getElementById('year'),makeSel=document.getElementById('make'),modelSel=document.getElementById('model');
+  for(let y=2026;y>=1990;y--)yearSel.add(new Option(y,y));
+  Object.keys(models).forEach(m=>makeSel.add(new Option(m,m)));
+  makeSel.addEventListener('change',()=>{
+    modelSel.innerHTML='<option value="">Select model</option>';
+    (models[makeSel.value]||[]).forEach(m=>modelSel.add(new Option(m,m)));
+    modelSel.disabled=!makeSel.value;
+  });
+
 </script>
 </body>
 </html>
