@@ -14,7 +14,7 @@
   .step{position:absolute;inset:0;padding:calc(104px + env(safe-area-inset-top)) 20px calc(56px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:20px;overflow-y:auto;-webkit-overflow-scrolling:touch;opacity:0;transform:translateY(40px);pointer-events:none;transition:opacity .35s ease,transform .35s ease}
   .step.active{opacity:1;transform:none;pointer-events:auto}
   .step.leaving{opacity:0;transform:translateY(-40px)}
-  .hero{width:min(100%,360px);aspect-ratio:9/16;max-height:52vh;border-radius:20px;overflow:hidden;background:#000;box-shadow:0 12px 40px rgba(0,0,0,.18)}
+  .hero{height:min(56vh,640px);aspect-ratio:9/16;width:auto;max-width:100%;flex:none;border-radius:20px;overflow:hidden;background:#000;box-shadow:0 12px 40px rgba(0,0,0,.18)}
   .hero video{width:100%;height:100%;object-fit:cover;display:block}
   h1{font-size:28px;line-height:1.15;margin:0;text-align:center;font-weight:800;letter-spacing:-.01em}
   p.sub{margin:0;color:var(--muted);text-align:center;font-size:17px;max-width:32ch}
