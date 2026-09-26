@@ -53,7 +53,8 @@
   .cat-head .meta{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--muted)}
   .cat-head .count{background:var(--green);color:#fff;border-radius:999px;padding:2px 8px;font-size:12px}
   .cat-head .count:empty{display:none}
-  .cat-head .chev{transition:transform .2s;color:#999;font-size:14px}
+  .cat-head .chev{display:inline-flex;width:26px;height:26px;transition:transform .2s;color:#444}
+  .cat-head .chev svg{width:100%;height:100%}
   .cat.open .cat-head .chev{transform:rotate(180deg)}
   .chips{display:none;flex-wrap:wrap;gap:8px;padding:0 4px 14px}
   .cat.open .chips{display:flex}
@@ -222,7 +223,7 @@
   for(const [cat,items] of Object.entries(ISSUES)){
     const wrap=document.createElement('div');wrap.className='cat';
     const head=document.createElement('button');head.type='button';head.className='cat-head';head.setAttribute('aria-expanded','false');
-    head.innerHTML=`<span>${cat}</span><span class="chev">&#9662;</span><span class="count"></span>`;
+    head.innerHTML=`<span>${cat}</span><span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span><span class="count"></span>`;
     const count=head.querySelector('.count');
     head.addEventListener('click',()=>{const open=!wrap.classList.contains('open');wrap.classList.toggle('open',open);head.setAttribute('aria-expanded',open);});
     const chips=document.createElement('div');chips.className='chips';
