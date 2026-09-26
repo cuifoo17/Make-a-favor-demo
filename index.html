@@ -32,7 +32,7 @@
   select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:40px}
   select:disabled{color:#aaa}
   select:focus,input:focus{outline:none;border-color:var(--green)}
-  input{text-transform:uppercase}
+  #vin{text-transform:uppercase}
   input::placeholder{text-transform:none;color:#aaa}
   .opt{font-weight:400}
   .status{font-size:calc(14px * var(--ts));color:var(--muted);min-height:18px;margin-top:-6px}
@@ -156,7 +156,6 @@
     <label>Name<input id="fullName" type="text" autocomplete="name" autocapitalize="words" placeholder="Your name"></label>
     <label>Phone<input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(804) 555-0142"></label>
     <label>Email<input id="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" placeholder="you@example.com"></label>
-    <p class="sub small">Phone or email, whichever you prefer. We only need one.</p>
     <div class="status err" id="contactStatus"></div>
   </div>
   <button class="btn" id="contactNext">Continue</button>
@@ -278,9 +277,10 @@
     const {firstName,lastName}=splitName(),em=g('email').value.trim(),ph=g('phone').value.trim();
     const st=g('contactStatus');
     if(!firstName){st.textContent='Please enter your name.';return;}
-    if(!em&&!ph){st.textContent='Please enter a phone number or an email.';return;}
-    if(ph){const n=digits(ph).length;if(n<9||n>10){st.textContent='That phone number should be 9 or 10 digits.';return;}}
-    if(em&&!emailOk(em)){st.textContent="That email doesn't look right. It should look like name@example.com.";return;}
+    if(!ph){st.textContent='Please enter your phone number.';return;}
+    {const n=digits(ph).length;if(n<9||n>10){st.textContent='That phone number should be 9 or 10 digits.';return;}}
+    if(!em){st.textContent='Please enter your email.';return;}
+    if(!emailOk(em)){st.textContent="That email doesn't look right. It should look like name@example.com.";return;}
     st.textContent='';show(i+1);
   });
   document.querySelectorAll('.choice').forEach(btn=>btn.addEventListener('click',async()=>{
