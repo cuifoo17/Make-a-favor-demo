@@ -194,12 +194,8 @@ async function findIntake(phones) {
 
 
 function instructionsText(d) {
-  const car = [d.year, d.make, d.model].filter(Boolean).join(" ");
-  return [
-    car ? `Vehicle: ${car}${d.vin ? " (VIN " + d.vin + ")" : ""}` : (d.vin ? `VIN: ${d.vin}` : null),
-    Array.isArray(d.issues) && d.issues.length ? `Reported issues: ${d.issues.join("; ")}` : null,
-    d.details ? `Customer says: ${d.details}` : null,
-  ].filter(Boolean).join("\n");
+  const { lines } = intakeLines({ ...d, intent: "" });
+  return lines.join("\n\n");
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
