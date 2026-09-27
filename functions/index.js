@@ -240,7 +240,9 @@ export const processWebhookEvent = onDocumentCreated({ document: "webhook_events
       } catch (e) { await ref.set({ customFieldError: String(e.message || e) }, { merge: true }); }
       out = await gql(token, `mutation($id: EncodedId!, $input: ClientCreateNoteInput!) { clientCreateNote(clientId: $id, input: $input) { clientNote { id } userErrors { message } } }`, { id: ev.itemId, input: { message, pinned: true } });
     } else if (ev.topic === "REQUEST_CREATE") {
-      const title = car && !(item.title || "").includes(car) ? `${car} \u2014 ${item.title || "Request"}` : item.title;
+      let base = item.title || "Request";
+      base = base.replace(/^Request for /i, "Appointment Request for ");
+      const title = car && !base.includes(car) ? `${car} \u2014 ${base}` : base;
       await gql(token, `mutation($id: EncodedId!, $input: RequestEditInput!) { requestEdit(requestId: $id, input: $input) { request { id } userErrors { message } } }`, { id: ev.itemId, input: { title } });
       // The assessment (the booked visit) can land a few seconds after the request. Poll for it.
       let assessmentId = item.assessment?.id;
