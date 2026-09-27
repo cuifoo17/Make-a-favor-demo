@@ -161,7 +161,7 @@
       <textarea id="details" rows="5" placeholder="Write here"></textarea>
     </label>
   </div>
-  <button class="btn" data-next>Continue</button>
+  <button class="btn dim" id="issuesNext" data-next>Continue</button>
 </section>
 
 <section class="step" data-step="3">
@@ -264,6 +264,8 @@
   yearSel.addEventListener('change',()=>{loadModels();updateCarNext();});
   makeSel.addEventListener('change',()=>{loadModels();updateCarNext();});
   modelSel.addEventListener('change',updateCarNext);
+  const detailsEl=document.getElementById('details'),issuesNext=document.getElementById('issuesNext');
+  detailsEl.addEventListener('input',()=>issuesNext.classList.toggle('dim',!detailsEl.value.trim()));
   [yearSel,makeSel,modelSel].forEach(sel=>{
     const mark=()=>{const l=sel.closest('label'),t=l.querySelector('.lt');l.classList.remove('filled');if(sel.value){void t.offsetWidth;l.classList.add('filled');}};
     sel.addEventListener('change',mark);sel._mark=mark;
