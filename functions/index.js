@@ -228,7 +228,7 @@ export const processWebhookEvent = onDocumentCreated({ document: "webhook_events
     const key = ev.topic.split("_")[0].toLowerCase(); // client | request | job
     if (intake.data().attached?.[key] === ev.itemId) return log({ result: "already attached" });
     const { car, lines } = intakeLines(intake.data().data);
-    const message = lines.join("\n");
+    const message = lines.join("\n\n");
     let out; const d = intake.data().data; const instr = instructionsText(d);
     if (ev.topic === "CLIENT_CREATE") {
       try {
