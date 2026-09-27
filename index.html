@@ -87,6 +87,9 @@
   .back{position:absolute;left:8px;top:calc(50% + env(safe-area-inset-top)/2);transform:translateY(-50%);appearance:none;border:0;background:transparent;color:var(--muted);font:inherit;font-size:calc(15px * var(--ts));font-weight:600;display:inline-flex;align-items:center;gap:2px;padding:8px 4px;min-height:40px;cursor:pointer}
   .back svg{width:18px;height:18px}
   .back[hidden]{display:none}
+  .lt{display:inline-block;transition:color .2s,font-size .2s;transform-origin:left center}
+  label.filled .lt{color:var(--green);font-size:calc(16px * var(--ts));animation:pop .38s cubic-bezier(.34,1.56,.64,1)}
+  @keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.18)}70%{transform:scale(.96)}100%{transform:scale(1)}}
   .counter{flex:none;padding:8px 0 calc(10px + env(safe-area-inset-bottom));text-align:center;color:var(--muted);font-size:calc(13px * var(--ts));background:var(--bg)}
   .ts-sheet{text-align:center;gap:18px}
   .ts-sample{font-size:calc(17px * var(--ts));line-height:1.35;margin:0;color:var(--ink)}
@@ -128,13 +131,13 @@
       <input id="vin" type="text" inputmode="text" autocapitalize="characters" autocomplete="off" maxlength="17" placeholder="17 characters">
     </label>
     <div class="status" id="vinStatus"></div>
-    <label>Year
+    <label><span class="lt">Year</span>
       <select id="year"><option value="">Select year</option></select>
     </label>
-    <label>Make
+    <label><span class="lt">Make</span>
       <select id="make"><option value="">Select make</option></select>
     </label>
-    <label>Model
+    <label><span class="lt">Model</span>
       <select id="model" disabled><option value="">Select year and make first</option></select>
     </label>
   </div>
@@ -231,7 +234,7 @@
   let modelReq=0;
   async function loadModels(preselect){
     const y=yearSel.value,m=makeSel.value;
-    modelSel.innerHTML='';modelSel.disabled=true;
+    modelSel.innerHTML='';modelSel.disabled=true;modelSel._mark&&modelSel._mark();
     if(!y||!m){modelSel.add(new Option('Select year and make first',''));return;}
     modelSel.add(new Option('Loading models…',''));
     const req=++modelReq;
@@ -245,7 +248,7 @@
       if(preselect&&!names.some(n=>n.toLowerCase()===preselect.toLowerCase()))modelSel.add(new Option(preselect,preselect));
       modelSel.add(new Option('Other','Other'));
       if(preselect){const o=[...modelSel.options].find(o=>o.value.toLowerCase()===preselect.toLowerCase());if(o)modelSel.value=o.value;}
-      modelSel.disabled=false;updateCarNext();
+      modelSel.disabled=false;updateCarNext();modelSel._mark&&modelSel._mark();
     }catch(e){
       if(req!==modelReq)return;
       modelSel.innerHTML='';modelSel.add(new Option('Select model',''));modelSel.add(new Option('Other','Other'));modelSel.disabled=false;
@@ -256,6 +259,11 @@
   yearSel.addEventListener('change',()=>{loadModels();updateCarNext();});
   makeSel.addEventListener('change',()=>{loadModels();updateCarNext();});
   modelSel.addEventListener('change',updateCarNext);
+  [yearSel,makeSel,modelSel].forEach(sel=>{
+    const mark=()=>{const l=sel.closest('label'),t=l.querySelector('.lt');l.classList.remove('filled');if(sel.value){void t.offsetWidth;l.classList.add('filled');}};
+    sel.addEventListener('change',mark);sel._mark=mark;
+  });
+
   function titleCase(s){return s.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()).replace(/\bBmw\b/,'BMW').replace(/\bGmc\b/,'GMC').replace(/\bRam\b/,'Ram')}
   async function decodeVin(){
     const vin=vinIn.value.trim().toUpperCase();
@@ -269,7 +277,7 @@
       const make=MAKES.find(m=>m.toLowerCase()===x.Make.toLowerCase())||titleCase(x.Make);
       if(![...makeSel.options].some(o=>o.value===make))makeSel.add(new Option(make,make));
       if(![...yearSel.options].some(o=>o.value==x.ModelYear))yearSel.add(new Option(x.ModelYear,x.ModelYear));
-      yearSel.value=x.ModelYear;makeSel.value=make;
+      yearSel.value=x.ModelYear;makeSel.value=make;yearSel._mark&&yearSel._mark();makeSel._mark&&makeSel._mark();
       await loadModels(x.Model);
       vinStatus.textContent=`Found: ${x.ModelYear} ${make} ${x.Model||''}`.trim();vinStatus.className='status ok';updateCarNext();
     }catch(e){vinStatus.textContent="Couldn't look up that VIN right now.";vinStatus.className='status err';}
