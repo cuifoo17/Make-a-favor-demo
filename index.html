@@ -78,6 +78,7 @@
   .choice .d{font-size:calc(14px * var(--ts));color:var(--muted)}
   .choice[disabled]{opacity:.5}
   .btn[hidden]{display:none}
+  .btn.dim{background:#c9c9c9;color:#fff}
   a.btn{text-decoration:none}
   .back{position:absolute;left:8px;top:calc(50% + env(safe-area-inset-top)/2);transform:translateY(-50%);appearance:none;border:0;background:transparent;color:var(--muted);font:inherit;font-size:calc(15px * var(--ts));font-weight:600;display:inline-flex;align-items:center;gap:2px;padding:8px 4px;min-height:40px;cursor:pointer}
   .back svg{width:18px;height:18px}
@@ -133,7 +134,7 @@
       <select id="model" disabled><option value="">Select year and make first</option></select>
     </label>
   </div>
-  <button class="btn" data-next>Continue</button>
+  <button class="btn dim" id="carNext" data-next>Continue</button>
 </section>
 
 <section class="step" data-step="2">
@@ -235,14 +236,17 @@
       if(preselect&&!names.some(n=>n.toLowerCase()===preselect.toLowerCase()))modelSel.add(new Option(preselect,preselect));
       modelSel.add(new Option('Other','Other'));
       if(preselect){const o=[...modelSel.options].find(o=>o.value.toLowerCase()===preselect.toLowerCase());if(o)modelSel.value=o.value;}
-      modelSel.disabled=false;
+      modelSel.disabled=false;updateCarNext();
     }catch(e){
       if(req!==modelReq)return;
       modelSel.innerHTML='';modelSel.add(new Option('Select model',''));modelSel.add(new Option('Other','Other'));modelSel.disabled=false;
     }
   }
-  yearSel.addEventListener('change',()=>loadModels());
-  makeSel.addEventListener('change',()=>loadModels());
+  const carNext=document.getElementById('carNext');
+  const updateCarNext=()=>{carNext.classList.toggle('dim',!(yearSel.value&&makeSel.value&&modelSel.value));};
+  yearSel.addEventListener('change',()=>{loadModels();updateCarNext();});
+  makeSel.addEventListener('change',()=>{loadModels();updateCarNext();});
+  modelSel.addEventListener('change',updateCarNext);
   function titleCase(s){return s.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()).replace(/\bBmw\b/,'BMW').replace(/\bGmc\b/,'GMC').replace(/\bRam\b/,'Ram')}
   async function decodeVin(){
     const vin=vinIn.value.trim().toUpperCase();
@@ -258,7 +262,7 @@
       if(![...yearSel.options].some(o=>o.value==x.ModelYear))yearSel.add(new Option(x.ModelYear,x.ModelYear));
       yearSel.value=x.ModelYear;makeSel.value=make;
       await loadModels(x.Model);
-      vinStatus.textContent=`Found: ${x.ModelYear} ${make} ${x.Model||''}`.trim();vinStatus.className='status ok';
+      vinStatus.textContent=`Found: ${x.ModelYear} ${make} ${x.Model||''}`.trim();vinStatus.className='status ok';updateCarNext();
     }catch(e){vinStatus.textContent="Couldn't look up that VIN right now.";vinStatus.className='status err';}
   }
   vinIn.addEventListener('input',()=>{if(vinIn.value.trim().length===17)decodeVin();else{vinStatus.textContent='';vinStatus.className='status';}});
