@@ -107,7 +107,7 @@
 <main>
 <section class="step active" data-step="0">
   <div class="hero">
-    <video src="assets/hero.mp4?v=2" autoplay muted loop playsinline></video>
+    <video id="heroVideo" src="assets/hero.mp4?v=2" muted loop playsinline preload="auto"></video>
   </div>
   <h1>Need a car favor?</h1>
   <button class="btn" data-next>Get started</button>
@@ -192,7 +192,7 @@
 <div class="modal" id="tsModal" hidden>
   <div class="sheet ts-sheet" role="dialog" aria-modal="true" aria-labelledby="tsTitle">
     <p class="ts-sample" id="tsTitle">Choose a size that is comfortable to read</p>
-    <div class="ts-row"><span class="a">A</span><div class="ts-track"><div class="line"></div><div class="dots"><i></i><i></i><i></i><i></i><i></i></div><div class="thumb" id="tsThumb"></div><input type="range" id="tsRange" min="0" max="4" step="1" value="4" aria-label="Text size"></div><span class="A">A</span></div>
+    <div class="ts-row"><span class="a">A</span><div class="ts-track"><div class="line"></div><div class="dots"><i></i><i></i><i></i><i></i><i></i></div><div class="thumb" id="tsThumb"></div><input type="range" id="tsRange" min="0" max="4" step="1" value="2" aria-label="Text size"></div><span class="A">A</span></div>
     <div class="ts-hint" id="tsHint"><span class="l">&#8249;</span><span>slide</span><span class="r">&#8250;</span></div>
     <button class="btn" id="tsDone">Looks good</button>
   </div>
@@ -295,10 +295,12 @@
   const tsThumb=document.getElementById('tsThumb');
   function setTs(i){document.documentElement.style.setProperty('--ts',TS[i]);tsThumb.style.left=`calc(${i/4} * (100% - var(--thumb)))`;}
   let saved=null;try{saved=sessionStorage.getItem('ts');}catch(e){}
-  if(saved!==null){setTs(+saved);tsRange.value=saved;}else{setTs(4);tsModal.hidden=false;}
+  const heroVideo=document.getElementById('heroVideo');
+  const playHero=()=>{heroVideo.play().catch(()=>{});};
+  if(saved!==null){setTs(+saved);tsRange.value=saved;playHero();}else{setTs(2);tsModal.hidden=false;}
   tsRange.addEventListener('input',()=>{setTs(+tsRange.value);tsHint.classList.add('done');});
   document.getElementById('tsOpen').addEventListener('click',()=>{tsModal.hidden=false;});
-  document.getElementById('tsDone').addEventListener('click',()=>{try{sessionStorage.setItem('ts',tsRange.value);}catch(e){}tsModal.hidden=true;});
+  document.getElementById('tsDone').addEventListener('click',()=>{try{sessionStorage.setItem('ts',tsRange.value);}catch(e){}tsModal.hidden=true;playHero();});
 
   const ISSUES={
     "Brakes":["Squeaking or grinding","Replace pads","Replace rotors","Soft or spongy pedal"],
