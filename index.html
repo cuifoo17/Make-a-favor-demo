@@ -91,6 +91,8 @@
   .lt{display:inline-block;transition:color .2s,font-size .2s;transform-origin:left center}
   label.filled .lt{color:var(--green);font-size:calc(16px * var(--ts));animation:pop .38s cubic-bezier(.34,1.56,.64,1)}
   @keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.18)}70%{transform:scale(.96)}100%{transform:scale(1)}}
+  .sq{height:40%;aspect-ratio:1/1;max-width:100%;flex:none;border-radius:20px;overflow:hidden;background:#000}
+  .sq video{width:100%;height:100%;object-fit:cover;display:block}
   .counter{flex:none;padding:8px 0 calc(10px + env(safe-area-inset-bottom));text-align:center;color:var(--muted);font-size:calc(13px * var(--ts));background:var(--bg)}
   .ts-sheet{text-align:center;gap:18px}
   .ts-sample{font-size:calc(17px * var(--ts));line-height:1.35;margin:0;color:var(--ink)}
@@ -126,6 +128,7 @@
 </section>
 
 <section class="step" data-step="1">
+  <div class="sq"><video src="assets/car.mp4" autoplay muted loop playsinline preload="auto"></video></div>
   <h1>Tell us about your car</h1>
   <div class="form">
     <label><span>VIN <span class="opt">(optional)</span> <button type="button" class="info" id="vinInfo" aria-label="Where to find your VIN">i</button></span>
