@@ -145,13 +145,13 @@ const normPhone = (v) => { let d = String(v || "").replace(/\D/g, ""); if (d.len
 
 function intakeLines(d) {
   const car = [d.year, d.make, d.model].filter(Boolean).join(" ");
+  const issues = Array.isArray(d.issues) ? d.issues.map((x) => String(x).toLowerCase()) : [];
   return { car, lines: [
-    car ? `Vehicle: ${car}` : null,
+    car ? `VEHICLE: ${car}` : null,
     d.vin ? `VIN: ${d.vin}` : null,
-    Array.isArray(d.issues) && d.issues.length ? `Issues:\n- ${d.issues.join("\n- ")}` : null,
-    d.details ? `Customer's description:\n${d.details}` : null,
-    d.intent ? `Chose on website: ${d.intent}` : null,
-    "(From the Do Favor website intake)",
+    issues.length ? `ISSUES:\n${issues.map((x) => "- " + x).join("\n")}` : null,
+    d.details ? `CUSTOMER DESCRIPTION: ${d.details}` : null,
+    d.intent ? `CHOSE ON WEBSITE: ${d.intent}` : null,
   ].filter(Boolean) };
 }
 
@@ -254,12 +254,11 @@ export const processWebhookEvent = onDocumentCreated({ document: "webhook_events
         assessmentId = r?.data?.request?.assessment?.id;
       }
       if (assessmentId && instr) await gql(token, `mutation($id: EncodedId!, $input: AssessmentEditInput!) { assessmentEdit(assessmentId: $id, input: $input) { assessment { id } userErrors { message } } }`, { id: assessmentId, input: { instructions: instr } });
-      out = await gql(token, `mutation($id: EncodedId!, $input: RequestCreateNoteInput!) { requestCreateNote(requestId: $id, input: $input) { requestNote { id } userErrors { message } } }`, { id: ev.itemId, input: { message, pinned: true } });
-      await ref.set({ assessmentId: assessmentId || null }, { merge: true });
+      out = { assessmentId: assessmentId || null }; // note lives on the client; Jobber links it here automatically
     } else {
       const title = car && !(item.title || "").includes(car) ? `${car} \u2014 ${item.title || "Job"}` : item.title;
       await gql(token, `mutation($id: EncodedId!, $input: JobEditInput!) { jobEdit(jobId: $id, input: $input) { job { id } userErrors { message } } }`, { id: ev.itemId, input: { title, instructions: instr } });
-      out = await gql(token, `mutation($id: EncodedId!, $input: JobCreateNoteInput!) { jobCreateNote(jobId: $id, input: $input) { jobNote { id } userErrors { message } } }`, { id: ev.itemId, input: { message, pinned: true } });
+      out = { instructions: true }; // note lives on the client; Jobber links it here automatically
     }
     await intake.ref.set({ attached: { ...(intake.data().attached || {}), [key]: ev.itemId } }, { merge: true });
     return log({ result: "attached", intakeId: intake.id, detail: JSON.stringify(out).slice(0, 500) });
