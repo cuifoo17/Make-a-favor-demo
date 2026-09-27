@@ -290,6 +290,69 @@
     if(link){window.location.href=link;}
     else{g('doneLink').hidden=true;st.textContent='';show(i+1);}
   }));
+  const tsModal=document.getElementById('tsModal'),tsRange=document.getElementById('tsRange'),tsHint=document.getElementById('tsHint');
+  const TS=[0.9,1.1,1.3,1.55,1.8];
+  const tsThumb=document.getElementById('tsThumb');
+  function setTs(i){document.documentElement.style.setProperty('--ts',TS[i]);tsThumb.style.left=`calc(${i/4} * (100% - var(--thumb)))`;}
+  let saved=null;try{saved=sessionStorage.getItem('ts');}catch(e){}
+  if(saved!==null){setTs(+saved);tsRange.value=saved;}else{setTs(4);tsModal.hidden=false;}
+  tsRange.addEventListener('input',()=>{setTs(+tsRange.value);tsHint.classList.add('done');});
+  document.getElementById('tsOpen').addEventListener('click',()=>{tsModal.hidden=false;});
+  document.getElementById('tsDone').addEventListener('click',()=>{try{sessionStorage.setItem('ts',tsRange.value);}catch(e){}tsModal.hidden=true;});
+
+  const ISSUES={
+    "Brakes":["Squeaking or grinding","Replace pads","Replace rotors","Soft or spongy pedal"],
+    "Engine":["Check engine light","Won't start","Rough idle or stalling","Overheating"],
+    "Transmission":["Maintenance / fluid","Slipping or stuttering","Hard shifting"],
+    "Oil & fluids":["Oil change","Oil leak","Coolant leak"],
+    "Battery & electrical":["Dead battery","Alternator","Warning lights on dash","Headlight or taillight out"],
+    "Tires & wheels":["Flat or slow leak","Tire rotation","Pulling to one side (alignment)","Vibration at speed (balancing)"],
+    "Suspension & steering":["Clunking over bumps","Shocks or struts","Steering noise or stiffness"],
+    "AC & heat":["AC not cold","Heat not working"],
+    "Exhaust":["Loud exhaust or muffler"],
+    "Other":["Noise I can't identify","Something else"]
+  };
+  const issuesEl=document.getElementById('issues');
+  const selected=new Set();
+  const cats=[];
+  for(const [cat,items] of Object.entries(ISSUES)){
+    const wrap=document.createElement('div');wrap.className='cat';
+    const head=document.createElement('button');head.type='button';head.className='cat-head';head.setAttribute('aria-expanded','false');
+    head.innerHTML=`<span>${cat}</span><span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span><span class="count"></span>`;
+    const count=head.querySelector('.count');
+    head.addEventListener('click',()=>{const open=!wrap.classList.contains('open');wrap.classList.toggle('open',open);head.setAttribute('aria-expanded',open);});
+    const chips=document.createElement('div');chips.className='chips';
+    const chipEls=items.map(t=>{
+      const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=t;b.setAttribute('aria-pressed','false');
+      const key=cat+' - '+t;
+      b.addEventListener('click',()=>{
+        const on=!selected.has(key);on?selected.add(key):selected.delete(key);b.setAttribute('aria-pressed',on);
+        const n=items.filter(x=>selected.has(cat+' - '+x)).length;count.textContent=n?n:'';
+      });
+      chips.appendChild(b);return {b,t};
+    });
+    wrap.appendChild(head);wrap.appendChild(chips);issuesEl.appendChild(wrap);
+    cats.push({cat,wrap,head,chipEls});
+  }
+  const noRes=document.createElement('div');noRes.className='noresults';noRes.hidden=true;noRes.textContent='No matches. Pick "Something else" under Other and describe it below.';issuesEl.appendChild(noRes);
+  const search=document.getElementById('issueSearch');
+  search.addEventListener('input',()=>{
+    const q=search.value.trim().toLowerCase();
+    let any=false;
+    cats.forEach(({cat,wrap,head,chipEls})=>{
+      if(!q){wrap.classList.remove('hide');chipEls.forEach(({b})=>b.classList.remove('hide'));wrap.classList.remove('open');head.setAttribute('aria-expanded','false');return;}
+      const catHit=cat.toLowerCase().includes(q);
+      let hits=0;
+      chipEls.forEach(({b,t})=>{const hit=catHit||t.toLowerCase().includes(q);b.classList.toggle('hide',!hit);if(hit)hits++;});
+      wrap.classList.toggle('hide',hits===0);wrap.classList.toggle('open',hits>0);head.setAttribute('aria-expanded',hits>0);
+      if(hits)any=true;
+    });
+    noRes.hidden=!q||any;
+  });
+  const vinModal=document.getElementById('vinModal');
+  document.getElementById('vinInfo').addEventListener('click',e=>{e.preventDefault();vinModal.hidden=false;});
+  document.getElementById('vinClose').addEventListener('click',()=>vinModal.hidden=true);
+  vinModal.addEventListener('click',e=>{if(e.target===vinModal)vinModal.hidden=true;});
 </script>
 </body>
 </html>
