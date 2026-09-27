@@ -193,25 +193,6 @@ async function findIntake(phones) {
 }
 
 
-// Custom fields "Vehicle" and "VIN" on every client. Created once, ids cached in Firestore.
-async function ensureCustomFields(token) {
-  const ref = db.collection("jobber").doc("customFields");
-  const snap = await ref.get();
-  if (snap.exists && snap.data().Vehicle && snap.data().VIN) return snap.data();
-  const ex = await gql(token, `{ customFieldConfigurations(first: 50) { nodes { ... on CustomFieldConfigurationText { id name appliesTo archived } } } }`);
-  const have = {};
-  for (const n of ex?.data?.customFieldConfigurations?.nodes || []) if (n?.id && n.appliesTo === "ALL_CLIENTS" && !n.archived && ["Vehicle", "VIN"].includes(n.name)) have[n.name] = n.id;
-  for (const name of ["Vehicle", "VIN"]) {
-    if (have[name]) continue;
-    const r = await gql(token, `mutation($input: CustomFieldConfigurationCreateTextInput!) { customFieldConfigurationCreateText(input: $input) { customFieldConfiguration { ... on CustomFieldConfigurationText { id } } userErrors { message } } }`, { input: { appliesTo: "ALL_CLIENTS", name, transferable: true, readOnly: false } });
-    const id = r?.data?.customFieldConfigurationCreateText?.customFieldConfiguration?.id;
-    if (!id) throw new Error("custom field create failed: " + JSON.stringify(r).slice(0, 300));
-    have[name] = id;
-  }
-  await ref.set(have, { merge: true });
-  return have;
-}
-
 function instructionsText(d) {
   const car = [d.year, d.make, d.model].filter(Boolean).join(" ");
   return [
@@ -231,7 +212,7 @@ export const processWebhookEvent = onDocumentCreated({ document: "webhook_events
     const token = await accessToken();
     let phones = [], client = null, item = null;
     if (ev.topic === "CLIENT_CREATE") {
-      const r = await gql(token, `query($id: EncodedId!) { client(id: $id) { id phones { number } } }`, { id: ev.itemId });
+      const r = await gql(token, `query($id: EncodedId!) { client(id: $id) { id phones { number } customFields { ... on CustomFieldText { id label } } } }`, { id: ev.itemId });
       client = r?.data?.client; item = client;
     } else if (ev.topic === "REQUEST_CREATE") {
       const r = await gql(token, `query($id: EncodedId!) { request(id: $id) { id title assessment { id } client { id phones { number } } } }`, { id: ev.itemId });
@@ -251,11 +232,15 @@ export const processWebhookEvent = onDocumentCreated({ document: "webhook_events
     let out; const d = intake.data().data; const instr = instructionsText(d);
     if (ev.topic === "CLIENT_CREATE") {
       try {
-        const cf = await ensureCustomFields(token);
+        const byLabel = {};
+        for (const f of client.customFields || []) if (f?.id && f.label) byLabel[f.label.trim().toLowerCase()] = f.id;
         const customFields = [];
-        if (car) customFields.push({ customFieldConfigurationId: cf.Vehicle, valueText: car });
-        if (d.vin) customFields.push({ customFieldConfigurationId: cf.VIN, valueText: d.vin });
-        if (customFields.length) await gql(token, `mutation($id: EncodedId!, $input: ClientEditInput!) { clientEdit(clientId: $id, input: $input) { client { id } userErrors { message } } }`, { id: ev.itemId, input: { customFields } });
+        if (car && byLabel.vehicle) customFields.push({ id: byLabel.vehicle, valueText: car });
+        if (d.vin && byLabel.vin) customFields.push({ id: byLabel.vin, valueText: d.vin });
+        if (customFields.length) {
+          const r = await gql(token, `mutation($id: EncodedId!, $input: ClientEditInput!) { clientEdit(clientId: $id, input: $input) { client { id } userErrors { message } } }`, { id: ev.itemId, input: { customFields } });
+          await ref.set({ customFieldResult: JSON.stringify(r).slice(0, 300) }, { merge: true });
+        } else await ref.set({ customFieldResult: "no Vehicle/VIN fields on client" }, { merge: true });
       } catch (e) { await ref.set({ customFieldError: String(e.message || e) }, { merge: true }); }
       out = await gql(token, `mutation($id: EncodedId!, $input: ClientCreateNoteInput!) { clientCreateNote(clientId: $id, input: $input) { clientNote { id } userErrors { message } } }`, { id: ev.itemId, input: { message, pinned: true } });
     } else if (ev.topic === "REQUEST_CREATE") {
