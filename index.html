@@ -82,6 +82,7 @@
   .choice .t{font-size:calc(18px * var(--ts));font-weight:700}
   .choice .d{font-size:calc(14px * var(--ts));color:var(--muted)}
   .choice[disabled]{opacity:.5}
+  .choice[hidden]{display:none}
   .btn[hidden]{display:none}
   .btn.dim{background:#c9c9c9;color:#fff}
   a.btn{text-decoration:none}
@@ -175,12 +176,11 @@
 
 <section class="step" data-step="4">
   <div class="sq"><video src="assets/contact.mp4" autoplay muted loop playsinline preload="auto"></video></div>
-  <h1>What would you like to do?</h1>
-  <p class="sub">You'll pick a time on the next screen.</p>
+  <h1>Choose how to proceed:</h1>
   <div class="form choices">
     <button type="button" class="choice" data-intent="Schedule appointment"><span class="t">Schedule appointment now</span><span class="d">Pick a time for us to look at your car</span></button>
     <button type="button" class="choice" data-intent="Schedule call"><span class="t">Schedule a call now</span><span class="d">Talk it through with us first</span></button>
-    <button type="button" class="choice" data-intent="Book oil change"><span class="t">Book oil change now</span><span class="d">Save 10% when you book online</span></button>
+    <button type="button" class="choice" data-intent="Book oil change" hidden><span class="t">Book oil change now</span><span class="d">Save 10% when you book online</span></button>
     <div class="status err" id="submitStatus"></div>
   </div>
 </section>
