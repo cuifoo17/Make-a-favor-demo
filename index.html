@@ -197,25 +197,22 @@
     <button class="btn" id="tsDone">Looks good</button>
   </div>
 </div>
-<div class="counter" id="counter"></div>
 
 <script>
   const steps=[...document.querySelectorAll('.step')];
   let i=0;
-  const counter=document.getElementById('counter');
   function show(n){
     if(n<0||n>=steps.length)return;
     const cur=steps[i];
     cur.classList.remove('active');cur.classList.add('leaving');
     setTimeout(()=>cur.classList.remove('leaving'),350);
     i=n;steps[i].classList.add('active');
-    counter.textContent=`${i+1} / ${steps.length}`;
   }
   document.addEventListener('click',e=>{
     if(e.target.closest('[data-next]'))show(i+1);
     if(e.target.closest('[data-back]'))show(i-1);
   });
-  counter.textContent=`1 / ${steps.length}`;
+
   const MAKES=["Acura","Alfa Romeo","Audi","BMW","Buick","Cadillac","Chevrolet","Chrysler","Dodge","Fiat","Ford","Genesis","GMC","Honda","Hyundai","Infiniti","Jaguar","Jeep","Kia","Land Rover","Lexus","Lincoln","Lucid","Maserati","Mazda","Mercedes-Benz","Mini","Mitsubishi","Nissan","Polestar","Porsche","Ram","Rivian","Subaru","Tesla","Toyota","Volkswagen","Volvo"];
   const API="https://vpic.nhtsa.dot.gov/api/vehicles/";
   const yearSel=document.getElementById('year'),makeSel=document.getElementById('make'),modelSel=document.getElementById('model'),vinIn=document.getElementById('vin'),vinStatus=document.getElementById('vinStatus');
