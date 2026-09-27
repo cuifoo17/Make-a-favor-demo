@@ -15,7 +15,7 @@
   .ts-btn .a{font-size:13px;font-weight:600;line-height:1}
   .ts-btn .A{font-size:20px;font-weight:800;line-height:1}
   header img{height:67px;width:auto;display:block}
-  .step{position:absolute;inset:0;padding:44px 20px 24px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:20px;overflow-y:auto;-webkit-overflow-scrolling:touch;opacity:0;transform:translateY(40px);pointer-events:none;transition:opacity .35s ease,transform .35s ease}
+  .step{position:absolute;inset:0;padding:16px 20px 24px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:20px;overflow-y:auto;-webkit-overflow-scrolling:touch;opacity:0;transform:translateY(40px);pointer-events:none;transition:opacity .35s ease,transform .35s ease}
   .step.active{opacity:1;transform:none;pointer-events:auto}
   .step.leaving{opacity:0;transform:translateY(-40px)}
   .hero{width:min(100%,360px);aspect-ratio:4/5;flex:none;border-radius:20px;overflow:hidden;background:#000;box-shadow:0 12px 40px rgba(0,0,0,.18)}
@@ -79,7 +79,7 @@
   .choice[disabled]{opacity:.5}
   .btn[hidden]{display:none}
   a.btn{text-decoration:none}
-  .back{position:absolute;top:6px;right:14px;z-index:5;appearance:none;border:0;background:transparent;color:var(--muted);font:inherit;font-size:calc(15px * var(--ts));font-weight:600;display:inline-flex;align-items:center;gap:2px;padding:8px 4px;min-height:40px;cursor:pointer}
+  .back{position:absolute;left:8px;top:calc(50% + env(safe-area-inset-top)/2);transform:translateY(-50%);appearance:none;border:0;background:transparent;color:var(--muted);font:inherit;font-size:calc(15px * var(--ts));font-weight:600;display:inline-flex;align-items:center;gap:2px;padding:8px 4px;min-height:40px;cursor:pointer}
   .back svg{width:18px;height:18px}
   .back[hidden]{display:none}
   .counter{flex:none;padding:8px 0 calc(10px + env(safe-area-inset-bottom));text-align:center;color:var(--muted);font-size:calc(13px * var(--ts));background:var(--bg)}
@@ -105,10 +105,9 @@
 </style>
 </head>
 <body>
-<header><img src="assets/logo.jpg" alt="Do Favor. We do favors."><button type="button" class="ts-btn" id="tsOpen" aria-label="Text size"><span class="a">A</span><span class="A">A</span></button></header>
+<header><button type="button" class="back" id="backBtn" data-back hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button><img src="assets/logo.jpg" alt="Do Favor. We do favors."><button type="button" class="ts-btn" id="tsOpen" aria-label="Text size"><span class="a">A</span><span class="A">A</span></button></header>
 
 <main>
-<button type="button" class="back" id="backBtn" data-back hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>
 <section class="step active" data-step="0">
   <div class="hero">
     <video id="heroVideo" src="assets/hero.mp4?v=2" muted loop playsinline preload="auto"></video>
