@@ -168,10 +168,10 @@
   <div class="sq"><video src="assets/contact.mp4" autoplay muted loop playsinline preload="auto"></video></div>
   <h1>What's the best number to reach you?</h1>
   <div class="form">
-    <label>Phone<input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(804) 555-0142"></label>
+    <label>Phone<input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(804) 555 - 0142"></label>
     <div class="status err" id="contactStatus"></div>
   </div>
-  <button class="btn" id="contactNext">Continue</button>
+  <button class="btn dim" id="contactNext">Continue</button>
 </section>
 
 <section class="step" data-step="4">
@@ -295,6 +295,9 @@
   const BOOKING_LINKS={"Schedule appointment":"https://clienthub.getjobber.com/hubs/7d2a8232-2cee-447d-9675-ee332a19774f/public/requests/5220159/new","Schedule call":"https://clienthub.getjobber.com/hubs/7d2a8232-2cee-447d-9675-ee332a19774f/public/requests/5220552/new","Book oil change":"https://clienthub.getjobber.com/hubs/7d2a8232-2cee-447d-9675-ee332a19774f/public/requests/5220605/new"};
   const g=id=>document.getElementById(id);
   const digits=v=>v.replace(/\D/g,'');
+  const phoneEl=g('phone');
+  const fmtPhone=v=>{let d=digits(v);if(d.length===11&&d[0]==='1')d=d.slice(1);d=d.slice(0,10);if(d.length<=3)return d;if(d.length<=6)return `(${d.slice(0,3)}) ${d.slice(3)}`;return `(${d.slice(0,3)}) ${d.slice(3,6)} - ${d.slice(6)}`;};
+  phoneEl.addEventListener('input',()=>{phoneEl.value=fmtPhone(phoneEl.value);const n=digits(phoneEl.value).length;g('contactNext').classList.toggle('dim',n<9);if(n)g('contactStatus').textContent='';});
   g('contactNext').addEventListener('click',()=>{
     const ph=g('phone').value.trim(),st=g('contactStatus');
     if(!ph){st.textContent='Please enter your phone number.';return;}
