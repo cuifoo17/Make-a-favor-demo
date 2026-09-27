@@ -60,16 +60,32 @@ export const jobberCallback = onRequest({ region: REGION, secrets: [CLIENT_ID, C
 
 async function accessToken() {
   const ref = db.collection("jobber").doc("connection");
-  const snap = await ref.get();
-  if (!snap.exists) throw new Error("Jobber not connected. Visit /jobberConnect first.");
-  const c = snap.data();
-  if (c.access_token && c.expires_at - Date.now() > 120000) return c.access_token;
-  const body = new URLSearchParams({ client_id: CLIENT_ID.value(), client_secret: CLIENT_SECRET.value(), grant_type: "refresh_token", refresh_token: c.refresh_token });
-  const r = await fetch("https://api.getjobber.com/api/oauth/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body });
-  const tok = await r.json();
-  if (!r.ok || !tok.access_token) throw new Error("Refresh failed: " + JSON.stringify(tok));
-  await ref.set({ access_token: tok.access_token, refresh_token: tok.refresh_token || c.refresh_token, expires_at: Date.now() + (tok.expires_in || 3600) * 1000 }, { merge: true });
-  return tok.access_token;
+  const lockRef = db.collection("jobber").doc("refreshLock");
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const snap = await ref.get();
+    if (!snap.exists) throw new Error("Jobber not connected. Visit /jobberConnect first.");
+    const c = snap.data();
+    if (c.access_token && c.expires_at - Date.now() > 120000) return c.access_token;
+    // Only one process refreshes at a time; refresh tokens rotate, so a second concurrent refresh would fail.
+    const got = await db.runTransaction(async (tx) => {
+      const l = await tx.get(lockRef);
+      if (l.exists && l.data().until > Date.now()) return false;
+      tx.set(lockRef, { until: Date.now() + 20000 });
+      return true;
+    });
+    if (!got) { await new Promise((r) => setTimeout(r, 1500)); continue; }
+    try {
+      const body = new URLSearchParams({ client_id: CLIENT_ID.value(), client_secret: CLIENT_SECRET.value(), grant_type: "refresh_token", refresh_token: c.refresh_token });
+      const r = await fetch("https://api.getjobber.com/api/oauth/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body });
+      const tok = await r.json();
+      if (!r.ok || !tok.access_token) throw new Error("Refresh failed: " + JSON.stringify(tok));
+      await ref.set({ access_token: tok.access_token, refresh_token: tok.refresh_token || c.refresh_token, expires_at: Date.now() + (tok.expires_in || 3600) * 1000 }, { merge: true });
+      return tok.access_token;
+    } finally {
+      await lockRef.set({ until: 0 });
+    }
+  }
+  throw new Error("Could not obtain Jobber access token.");
 }
 
 async function gql(token, query, variables = {}) {
@@ -211,7 +227,7 @@ export const processWebhookEvent = onDocumentCreated({ document: "webhook_events
       const r = await gql(token, `query($id: EncodedId!) { client(id: $id) { id phones { number } customFields { ... on CustomFieldText { id label } } } }`, { id: ev.itemId });
       client = r?.data?.client; item = client;
     } else if (ev.topic === "REQUEST_CREATE") {
-      const r = await gql(token, `query($id: EncodedId!) { request(id: $id) { id title assessment { id } client { id phones { number } } } }`, { id: ev.itemId });
+      const r = await gql(token, `query($id: EncodedId!) { request(id: $id) { id title assessment { id } client { id firstName lastName phones { number } } } }`, { id: ev.itemId });
       item = r?.data?.request; client = item?.client;
     } else {
       const r = await gql(token, `query($id: EncodedId!) { job(id: $id) { id title client { id phones { number } } } }`, { id: ev.itemId });
@@ -240,9 +256,9 @@ export const processWebhookEvent = onDocumentCreated({ document: "webhook_events
       } catch (e) { await ref.set({ customFieldError: String(e.message || e) }, { merge: true }); }
       out = await gql(token, `mutation($id: EncodedId!, $input: ClientCreateNoteInput!) { clientCreateNote(clientId: $id, input: $input) { clientNote { id } userErrors { message } } }`, { id: ev.itemId, input: { message, pinned: true } });
     } else if (ev.topic === "REQUEST_CREATE") {
-      let base = item.title || "Request";
-      base = base.replace(/^Request for /i, "Appointment Request for ");
-      const title = car && !base.includes(car) ? `${car} \u2014 ${base}` : base;
+      const kind = /call/i.test(d.intent || "") ? "Call" : "Appointment";
+      const who = [client.firstName, client.lastName].filter((x) => x && x !== "[omitted]").join(" ") || (item.title || "").replace(/^Request for /i, "");
+      const title = `${car ? car + " - " : ""}${kind} Request by ${who}`.trim();
       await gql(token, `mutation($id: EncodedId!, $input: RequestEditInput!) { requestEdit(requestId: $id, input: $input) { request { id } userErrors { message } } }`, { id: ev.itemId, input: { title } });
       // The assessment (the booked visit) can land a few seconds after the request. Poll for it.
       let assessmentId = item.assessment?.id;
@@ -261,6 +277,13 @@ export const processWebhookEvent = onDocumentCreated({ document: "webhook_events
     await intake.ref.set({ attached: { ...(intake.data().attached || {}), [key]: ev.itemId } }, { merge: true });
     return log({ result: "attached", intakeId: intake.id, detail: JSON.stringify(out).slice(0, 500) });
   } catch (e) {
+    const tries = (ev.tries || 0) + 1;
+    if (tries < 4) {
+      await new Promise((r) => setTimeout(r, 4000 * tries));
+      const { processed, processedAt, result, error, ...rest } = ev;
+      await db.collection("webhook_events").add({ ...rest, tries, receivedAt: Date.now(), processed: false, retryOf: ref.id });
+      return log({ result: "error, requeued", error: String(e.message || e) });
+    }
     return log({ result: "error", error: String(e.message || e) });
   }
 });
