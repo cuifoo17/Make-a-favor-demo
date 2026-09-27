@@ -15,9 +15,13 @@
   .ts-btn .a{font-size:13px;font-weight:600;line-height:1}
   .ts-btn .A{font-size:20px;font-weight:800;line-height:1}
   header img{height:67px;width:auto;display:block}
-  .step{position:absolute;inset:0;padding:16px 20px 24px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:20px;overflow-y:auto;-webkit-overflow-scrolling:touch;opacity:0;transform:translateY(40px);pointer-events:none;transition:opacity .35s ease,transform .35s ease}
+  .step{position:absolute;inset:0;padding:16px 20px 24px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:20px;overflow-y:auto;-webkit-overflow-scrolling:touch;opacity:0;transform:translateX(100%);pointer-events:none;transition:transform .32s cubic-bezier(.22,.61,.36,1),opacity .32s ease}
+  .step.from-left{transform:translateX(-100%)}
+  main{overflow:hidden}
   .step.active{opacity:1;transform:none;pointer-events:auto}
-  .step.leaving{opacity:0;transform:translateY(-40px)}
+  .step.leaving{opacity:0;transform:translateX(-100%)}
+  .step.leaving.to-right{transform:translateX(100%)}
+  .step.active{opacity:1;transform:none}
   .hero{width:min(100%,360px);aspect-ratio:4/5;flex:none;border-radius:20px;overflow:hidden;background:#000;box-shadow:0 12px 40px rgba(0,0,0,.18)}
   .hero video{width:100%;height:100%;object-fit:cover;object-position:center 35%;display:block}
   h1{font-size:calc(28px * var(--ts));line-height:1.15;margin:0;text-align:center;font-weight:800;letter-spacing:-.01em}
@@ -203,11 +207,16 @@
   let i=0;
   function show(n){
     if(n<0||n>=steps.length)return;
-    const cur=steps[i];
-    cur.classList.remove('active');cur.classList.add('leaving');
-    setTimeout(()=>cur.classList.remove('leaving'),350);
-    i=n;steps[i].classList.add('active');
+    const back=n<i;
+    const cur=steps[i],nxt=steps[n];
+    nxt.classList.remove('leaving','to-right');
+    nxt.classList.toggle('from-left',back);
+    void nxt.offsetWidth; // let the start position apply before animating
+    cur.classList.remove('active');cur.classList.add('leaving');cur.classList.toggle('to-right',back);
+    setTimeout(()=>cur.classList.remove('leaving','to-right'),340);
+    i=n;nxt.classList.remove('from-left');nxt.classList.add('active');
     document.getElementById('backBtn').hidden=(i===0||i===steps.length-1);
+    nxt.scrollTop=0;
   }
   document.addEventListener('click',e=>{
     if(e.target.closest('[data-next]'))show(i+1);
