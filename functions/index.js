@@ -145,11 +145,11 @@ const normPhone = (v) => { let d = String(v || "").replace(/\D/g, ""); if (d.len
 
 function intakeLines(d) {
   const car = [d.year, d.make, d.model].filter(Boolean).join(" ");
-  const issues = Array.isArray(d.issues) ? d.issues.map((x) => String(x).toLowerCase()) : [];
+  const issues = (Array.isArray(d.issues) ? d.issues : []).map((x) => { const t = String(x); const i = t.indexOf(" - "); return i > 0 ? `[${t.slice(0, i)}]: ${t.slice(i + 3)}` : t; });
   return { car, lines: [
     car ? `VEHICLE: ${car}` : null,
     d.vin ? `VIN: ${d.vin}` : null,
-    issues.length ? `ISSUES:\n${issues.map((x) => "- " + x).join("\n")}` : null,
+    issues.length ? `ISSUES:\n${issues.join("\n")}` : null,
     d.details ? `CUSTOMER DESCRIPTION: ${d.details}` : null,
     d.intent ? `CHOSE ON WEBSITE: ${d.intent}` : null,
   ].filter(Boolean) };
