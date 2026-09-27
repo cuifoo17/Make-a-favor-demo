@@ -192,7 +192,37 @@ async function findIntake(phones) {
   return docs[0] || null;
 }
 
-export const processWebhookEvent = onDocumentCreated({ document: "webhook_events/{id}", region: REGION, secrets: [CLIENT_ID, CLIENT_SECRET] }, async (event) => {
+
+// Custom fields "Vehicle" and "VIN" on every client. Created once, ids cached in Firestore.
+async function ensureCustomFields(token) {
+  const ref = db.collection("jobber").doc("customFields");
+  const snap = await ref.get();
+  if (snap.exists && snap.data().Vehicle && snap.data().VIN) return snap.data();
+  const ex = await gql(token, `{ customFieldConfigurations(first: 50) { nodes { ... on CustomFieldConfigurationText { id name appliesTo archived } } } }`);
+  const have = {};
+  for (const n of ex?.data?.customFieldConfigurations?.nodes || []) if (n?.id && n.appliesTo === "ALL_CLIENTS" && !n.archived && ["Vehicle", "VIN"].includes(n.name)) have[n.name] = n.id;
+  for (const name of ["Vehicle", "VIN"]) {
+    if (have[name]) continue;
+    const r = await gql(token, `mutation($input: CustomFieldConfigurationCreateTextInput!) { customFieldConfigurationCreateText(input: $input) { customFieldConfiguration { ... on CustomFieldConfigurationText { id } } userErrors { message } } }`, { input: { appliesTo: "ALL_CLIENTS", name, transferable: true, readOnly: false } });
+    const id = r?.data?.customFieldConfigurationCreateText?.customFieldConfiguration?.id;
+    if (!id) throw new Error("custom field create failed: " + JSON.stringify(r).slice(0, 300));
+    have[name] = id;
+  }
+  await ref.set(have, { merge: true });
+  return have;
+}
+
+function instructionsText(d) {
+  const car = [d.year, d.make, d.model].filter(Boolean).join(" ");
+  return [
+    car ? `Vehicle: ${car}${d.vin ? " (VIN " + d.vin + ")" : ""}` : (d.vin ? `VIN: ${d.vin}` : null),
+    Array.isArray(d.issues) && d.issues.length ? `Reported issues: ${d.issues.join("; ")}` : null,
+    d.details ? `Customer says: ${d.details}` : null,
+  ].filter(Boolean).join("\n");
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+export const processWebhookEvent = onDocumentCreated({ document: "webhook_events/{id}", region: REGION, secrets: [CLIENT_ID, CLIENT_SECRET], timeoutSeconds: 120 }, async (event) => {
   const ref = event.data.ref; const ev = event.data.data();
   const log = async (extra) => ref.set({ processed: true, processedAt: Date.now(), ...extra }, { merge: true });
   if (!ev.verified) return log({ result: "unverified, ignored" });
@@ -204,7 +234,7 @@ export const processWebhookEvent = onDocumentCreated({ document: "webhook_events
       const r = await gql(token, `query($id: EncodedId!) { client(id: $id) { id phones { number } } }`, { id: ev.itemId });
       client = r?.data?.client; item = client;
     } else if (ev.topic === "REQUEST_CREATE") {
-      const r = await gql(token, `query($id: EncodedId!) { request(id: $id) { id title client { id phones { number } } } }`, { id: ev.itemId });
+      const r = await gql(token, `query($id: EncodedId!) { request(id: $id) { id title assessment { id } client { id phones { number } } } }`, { id: ev.itemId });
       item = r?.data?.request; client = item?.client;
     } else {
       const r = await gql(token, `query($id: EncodedId!) { job(id: $id) { id title client { id phones { number } } } }`, { id: ev.itemId });
@@ -218,16 +248,32 @@ export const processWebhookEvent = onDocumentCreated({ document: "webhook_events
     if (intake.data().attached?.[key] === ev.itemId) return log({ result: "already attached" });
     const { car, lines } = intakeLines(intake.data().data);
     const message = lines.join("\n");
-    let out;
+    let out; const d = intake.data().data; const instr = instructionsText(d);
     if (ev.topic === "CLIENT_CREATE") {
+      try {
+        const cf = await ensureCustomFields(token);
+        const customFields = [];
+        if (car) customFields.push({ customFieldConfigurationId: cf.Vehicle, valueText: car });
+        if (d.vin) customFields.push({ customFieldConfigurationId: cf.VIN, valueText: d.vin });
+        if (customFields.length) await gql(token, `mutation($id: EncodedId!, $input: ClientEditInput!) { clientEdit(clientId: $id, input: $input) { client { id } userErrors { message } } }`, { id: ev.itemId, input: { customFields } });
+      } catch (e) { await ref.set({ customFieldError: String(e.message || e) }, { merge: true }); }
       out = await gql(token, `mutation($id: EncodedId!, $input: ClientCreateNoteInput!) { clientCreateNote(clientId: $id, input: $input) { clientNote { id } userErrors { message } } }`, { id: ev.itemId, input: { message, pinned: true } });
     } else if (ev.topic === "REQUEST_CREATE") {
       const title = car && !(item.title || "").includes(car) ? `${car} \u2014 ${item.title || "Request"}` : item.title;
       await gql(token, `mutation($id: EncodedId!, $input: RequestEditInput!) { requestEdit(requestId: $id, input: $input) { request { id } userErrors { message } } }`, { id: ev.itemId, input: { title } });
+      // The assessment (the booked visit) can land a few seconds after the request. Poll for it.
+      let assessmentId = item.assessment?.id;
+      for (let n = 0; !assessmentId && n < 8; n++) {
+        await sleep(5000);
+        const r = await gql(token, `query($id: EncodedId!) { request(id: $id) { assessment { id } } }`, { id: ev.itemId });
+        assessmentId = r?.data?.request?.assessment?.id;
+      }
+      if (assessmentId && instr) await gql(token, `mutation($id: EncodedId!, $input: AssessmentEditInput!) { assessmentEdit(assessmentId: $id, input: $input) { assessment { id } userErrors { message } } }`, { id: assessmentId, input: { instructions: instr } });
       out = await gql(token, `mutation($id: EncodedId!, $input: RequestCreateNoteInput!) { requestCreateNote(requestId: $id, input: $input) { requestNote { id } userErrors { message } } }`, { id: ev.itemId, input: { message, pinned: true } });
+      await ref.set({ assessmentId: assessmentId || null }, { merge: true });
     } else {
       const title = car && !(item.title || "").includes(car) ? `${car} \u2014 ${item.title || "Job"}` : item.title;
-      await gql(token, `mutation($id: EncodedId!, $input: JobEditInput!) { jobEdit(jobId: $id, input: $input) { job { id } userErrors { message } } }`, { id: ev.itemId, input: { title } });
+      await gql(token, `mutation($id: EncodedId!, $input: JobEditInput!) { jobEdit(jobId: $id, input: $input) { job { id } userErrors { message } } }`, { id: ev.itemId, input: { title, instructions: instr } });
       out = await gql(token, `mutation($id: EncodedId!, $input: JobCreateNoteInput!) { jobCreateNote(jobId: $id, input: $input) { jobNote { id } userErrors { message } } }`, { id: ev.itemId, input: { message, pinned: true } });
     }
     await intake.ref.set({ attached: { ...(intake.data().attached || {}), [key]: ev.itemId } }, { merge: true });
