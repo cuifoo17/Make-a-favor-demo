@@ -345,7 +345,7 @@ const VIEW_CSS = `
   table{border-collapse:collapse;width:100%}th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
   tbody:last-child tr:last-child td{border-bottom:0}
   thead th{background:#fff;border-bottom:2px solid #000}
-  thead tr.vh th{background:#000;color:#fff;border-bottom:1px solid #2a2a2a}
+  thead tr.vh th{background:#fff;color:#000}
   th.vtitle{font-size:13px;font-weight:600;letter-spacing:.12em}
   th.v{min-width:200px}.vt{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.vt b{font-size:15px;font-weight:600}
   .btn{display:inline-block;background:var(--blue);color:#fff;text-decoration:none;font-weight:500;font-size:12px;padding:6px 12px;border-radius:6px;letter-spacing:.02em}
