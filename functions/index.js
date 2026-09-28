@@ -343,12 +343,17 @@ const VIEW_CSS = `
   .card:hover{border-color:#000;transform:translateY(-1px)}.card .n{font-size:17px;font-weight:600}.card .m{color:var(--muted);font-size:13px}.card .go{font-size:20px;color:#000}
   .wrap{overflow:auto;background:#fff;border:1px solid var(--line);border-radius:10px}
   table{border-collapse:collapse;width:100%}th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
-  tr:last-child td{border-bottom:0}
+  tbody:last-child tr:last-child td{border-bottom:0}
   thead th{background:#fff;border-bottom:2px solid #000}
   th.v{min-width:200px}.vt{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.vt b{font-size:15px;font-weight:600}
   .btn{display:inline-block;background:var(--blue);color:#fff;text-decoration:none;font-weight:500;font-size:12px;padding:6px 12px;border-radius:6px;letter-spacing:.02em}
   .btn:hover{filter:brightness(1.1)}
-  tr.sec td{background:#000;color:#fff;font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.1em;padding:7px 14px}
+  tr.sec td{background:#000;color:#fff;font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.1em;padding:12px 14px;border-bottom:1px solid #2a2a2a}
+  tr.sec{cursor:pointer;user-select:none}
+  tr.sec .sl{display:inline-flex;align-items:center;gap:10px}
+  tr.sec .chev{width:18px;height:18px;transition:transform .2s}
+  tbody.grp.open tr.sec .chev{transform:rotate(180deg)}
+  tbody.grp:not(.open) tr:not(.sec){display:none}
   td.k{color:#333}td.val{font-weight:600;font-variant-numeric:tabular-nums}
   tbody tr:not(.sec):hover td{background:#fafaf7}
   .note{color:var(--muted);font-size:12px;margin-top:14px}
@@ -457,7 +462,8 @@ export const sessionsView = onRequest({ region: REGION }, async (req, res) => {
   const p0 = (x) => (x == null ? "—" : Math.round(x) + "%");
   const n1 = (x) => (x == null ? "—" : x.toFixed(1));
   const R = (label, f) => `<tr><td class="k">${label}</td>${aggs.map(({ a }) => `<td class="val">${f(a)}</td>`).join("")}</tr>`;
-  const S = (label) => `<tr class="sec"><td colspan="${aggs.length + 1}">${label}</td></tr>`;
+  const CHEV = `<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>`;
+  const S = (label) => `</tbody><tbody class="grp"><tr class="sec" role="button" tabindex="0" aria-expanded="false"><td colspan="${aggs.length + 1}"><span class="sl">${label}${CHEV}</span></td></tr>`;
   const head = `<tr><th></th>${aggs.map(({ v }) => `<th class="v"><div class="vt"><b>${esc(v.name)}</b><a class="btn" href="${link({ form: formId, variant: v.id })}">See logs</a></div></th>`).join("")}</tr>`;
   const body = [
     S("Visits"), R("Total visits", (a) => a.visits),
@@ -472,5 +478,6 @@ export const sessionsView = onRequest({ region: REGION }, async (req, res) => {
   res.send(shell(form.name, `<div class="crumbs"><a href="${link({})}">My forms</a> › ${esc(form.name)}</div>
     <h1>${esc(form.name)}</h1><p class="sub">${variants.length} variant${variants.length === 1 ? "" : "s"} · ${all.length} visits</p>
     <div class="wrap"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>
-    <p class="note">Each page's numbers only count visitors who got to that page. Yes-or-no items show the share that was yes.</p>`));
+    <p class="note">Tap a section to open it. Each page's numbers only count visitors who got to that page. Yes-or-no items show the share that was yes.</p>
+    <script>document.querySelectorAll('tbody.grp > tr.sec').forEach(function(r){function t(){var g=r.parentNode,o=!g.classList.contains('open');g.classList.toggle('open',o);r.setAttribute('aria-expanded',o);}r.addEventListener('click',t);r.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();t();}});});</script>`));
 });
