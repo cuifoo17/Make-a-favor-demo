@@ -384,7 +384,7 @@ async function formsRegistry() {
   return Promise.all(forms.docs.map(async (f) => ({ id: f.id, name: f.data().name || f.id, variants: (await f.ref.collection("variants").get()).docs.map((v) => ({ id: v.id, name: v.data().name || v.id })) })));
 }
 
-function aggregate(rows, booked = new Set()) {
+function aggregate(rows) {
   const avg = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
   const pct = (xs) => (xs.length ? (100 * xs.filter(Boolean).length) / xs.length : null);
   const reached = (n) => rows.filter((r) => (r.furthestPage || 0) >= n);
@@ -397,7 +397,7 @@ function aggregate(rows, booked = new Set()) {
   const picked = rows.map((r) => r.page5?.choice).filter(Boolean);
   return {
     wentToJobber: pct(rows.map((r) => !!r.page5?.choice)),
-    gaveContact: pct(rows.map((r) => booked.has(r.sessionId))),
+    gaveContact: pct(rows.map((r) => r.page4?.validPhone === true)),
     visits: n,
     reach: [n ? 100 : null, pct(rows.map((r) => (r.furthestPage || 0) >= 1)), pct(rows.map((r) => (r.furthestPage || 0) >= 2)), pct(rows.map((r) => (r.furthestPage || 0) >= 3)), pct(rows.map((r) => (r.furthestPage || 0) >= 4))],
     sliderTouched: pct(popup.map((r) => r.textSize.sliderTouched)),
@@ -463,10 +463,7 @@ export const sessionsView = onRequest({ region: REGION }, async (req, res) => {
   }
 
   // ----- Page 2: variants side by side with averages
-  // Visits whose Jobber form was actually submitted: the webhook matched their intake to a new Jobber client, request, or job.
-  const intakeSnap = await db.collection("intakes").get();
-  const booked = new Set(intakeSnap.docs.map((x) => x.data()).filter((x) => x.sessionId && x.attached && Object.keys(x.attached).length).map((x) => x.sessionId));
-  const aggs = variants.map((v) => ({ v, a: aggregate(all.filter((r) => (r.variantId || "control") === v.id), booked) }));
+  const aggs = variants.map((v) => ({ v, a: aggregate(all.filter((r) => (r.variantId || "control") === v.id)) }));
   const s1 = (ms) => (ms == null ? "—" : (ms / 1000).toFixed(1) + "s");
   const p0 = (x) => (x == null ? "—" : Math.round(x) + "%");
   const n1 = (x) => (x == null ? "—" : x.toFixed(1));
