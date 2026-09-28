@@ -181,6 +181,7 @@ export const saveIntake = onRequest({ region: REGION }, async (req, res) => {
   if (phone.length < 9 || phone.length > 10) return res.status(400).json({ error: "Phone must be 9 or 10 digits." });
   const doc = await db.collection("intakes").add({
     phone, createdAt: Date.now(), attached: {},
+    sessionId: String(d.sessionId || "").slice(0, 64), visitorId: String(d.visitorId || "").slice(0, 64), variantId: String(d.variantId || "control").slice(0, 64),
     data: { year: d.year || "", make: d.make || "", model: d.model || "", vin: d.vin || "", issues: Array.isArray(d.issues) ? d.issues.slice(0, 50) : [], details: String(d.details || "").slice(0, 4000), intent: d.intent || "" },
   });
   res.json({ ok: true, id: doc.id });
@@ -303,7 +304,7 @@ export const track = onRequest({ region: REGION }, async (req, res) => {
     if (Buffer.isBuffer(d)) d = JSON.parse(d.toString("utf8"));
     const sid = String(d.sessionId || "").slice(0, 64), vid = String(d.visitorId || "").slice(0, 64);
     if (!/^[A-Za-z0-9_-]{8,64}$/.test(sid) || !/^[A-Za-z0-9_-]{8,64}$/.test(vid)) return res.status(400).send("bad ids");
-    const ts = d.textSize || {}, p1 = d.page1 || {}, p2 = d.page2 || {}, p3 = d.page3 || {};
+    const ts = d.textSize || {}, p1 = d.page1 || {}, p2 = d.page2 || {}, p3 = d.page3 || {}, p4 = d.page4 || {}, p5 = d.page5 || {};
     const doc = {
       sessionId: sid, visitorId: vid,
       formId: String(d.formId || "do-favor-intake").slice(0, 64), variantId: String(d.variantId || "control").slice(0, 64),
@@ -314,6 +315,8 @@ export const track = onRequest({ region: REGION }, async (req, res) => {
       page1: { ms: clampInt(p1.ms, 36e5) },
       page2: { ms: clampInt(p2.ms, 36e5), vinEntered: bool(p2.vinEntered), vinValid: p2.vinValid == null ? null : bool(p2.vinValid), yearFilled: bool(p2.yearFilled), makeFilled: bool(p2.makeFilled), modelFilled: bool(p2.modelFilled), allThreeFilled: bool(p2.allThreeFilled) },
       page3: { ms: clampInt(p3.ms, 36e5), groupsExpanded: clampInt(p3.groupsExpanded, 50), optionsSelected: clampInt(p3.optionsSelected, 100), descriptionChars: clampInt(p3.descriptionChars, 100000) },
+      page4: { ms: clampInt(p4.ms, 36e5), validPhone: bool(p4.validPhone), continueClicked: bool(p4.continueClicked) },
+      page5: { ms: clampInt(p5.ms, 36e5), choice: ["call", "appointment", "oil change"].includes(p5.choice) ? p5.choice : null },
     };
     await db.collection("sessions").doc(sid).set(doc, { merge: true });
     res.status(204).send("");
@@ -331,18 +334,20 @@ export const sessionsView = onRequest({ region: REGION }, async (req, res) => {
   const yn = (v) => (v === true ? "yes" : v === false ? "no" : "\u2014");
   const sizes = ["smallest", "small", "middle", "large", "largest"];
   const esc = (v) => String(v).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
-  const rows = snap.docs.map((x) => { const d = x.data(); const t = d.textSize || {}, a = d.page1 || {}, b = d.page2 || {}, c = d.page3 || {};
+  const rows = snap.docs.map((x) => { const d = x.data(); const t = d.textSize || {}, a = d.page1 || {}, b = d.page2 || {}, c = d.page3 || {}, e4 = d.page4 || {}, e5 = d.page5 || {};
     const when = new Date(d.startedAt).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" });
     const device = /iPhone/.test(d.userAgent) ? "iPhone" : /Android/.test(d.userAgent) ? "Android" : /Macintosh/.test(d.userAgent) ? "Mac" : /Windows/.test(d.userAgent) ? "Windows" : "other";
     return `<tr><td>${esc(when)}</td><td>${device}</td><td>${esc(d.variantId)}</td><td>${d.furthestPage + 1}</td>
       <td>${yn(t.sliderTouched)}</td><td>${t.chosenIndex == null ? "\u2014" : sizes[t.chosenIndex]}</td><td>${t.reopenedCount || 0}</td>
       <td>${sec(a.ms)}</td>
       <td>${sec(b.ms)}</td><td>${yn(b.vinEntered)}</td><td>${b.vinEntered ? yn(b.vinValid) : "\u2014"}</td><td>${yn(b.allThreeFilled)}</td>
-      <td>${sec(c.ms)}</td><td>${c.groupsExpanded || 0}</td><td>${c.optionsSelected || 0}</td><td>${c.descriptionChars || 0}</td></tr>`; }).join("");
+      <td>${sec(c.ms)}</td><td>${c.groupsExpanded || 0}</td><td>${c.optionsSelected || 0}</td><td>${c.descriptionChars || 0}</td>
+      <td>${sec(e4.ms)}</td><td>${yn(e4.validPhone)}</td><td>${yn(e4.continueClicked)}</td>
+      <td>${sec(e5.ms)}</td><td>${e5.choice || "\u2014"}</td></tr>`; }).join("");
   res.set("Cache-Control", "no-store").send(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Do Favor visits</title>
   <style>body{font:14px -apple-system,system-ui,sans-serif;margin:16px;color:#111}h1{font-size:20px}table{border-collapse:collapse;white-space:nowrap}th,td{border:1px solid #ddd;padding:6px 8px;text-align:left}th{background:#f4f4f4;position:sticky;top:0}thead tr:first-child th{background:#4a9b3a;color:#fff;text-align:center}.wrap{overflow:auto}</style>
   <h1>Do Favor intake: recent visits (${snap.size})</h1><p>Newest first. Times are seconds the page was on screen. Eastern time.</p><div class="wrap"><table>
-  <thead><tr><th colspan="4">Visit</th><th colspan="3">Text size</th><th>Page 1</th><th colspan="4">Page 2: car</th><th colspan="4">Page 3: issues</th></tr>
-  <tr><th>Started</th><th>Device</th><th>Variant</th><th>Furthest page</th><th>Moved slider</th><th>Size chosen</th><th>Reopened</th><th>Time</th><th>Time</th><th>VIN entered</th><th>VIN valid</th><th>Year+make+model</th><th>Time</th><th>Groups opened</th><th>Options picked</th><th>Description chars</th></tr></thead>
+  <thead><tr><th colspan="4">Visit</th><th colspan="3">Text size</th><th>Page 1</th><th colspan="4">Page 2: car</th><th colspan="4">Page 3: issues</th><th colspan="3">Page 4: phone</th><th colspan="2">Page 5: choice</th></tr>
+  <tr><th>Started</th><th>Device</th><th>Variant</th><th>Furthest page</th><th>Moved slider</th><th>Size chosen</th><th>Reopened</th><th>Time</th><th>Time</th><th>VIN entered</th><th>VIN valid</th><th>Year+make+model</th><th>Time</th><th>Groups opened</th><th>Options picked</th><th>Description chars</th><th>Time</th><th>Valid phone</th><th>Clicked continue</th><th>Time</th><th>Picked</th></tr></thead>
   <tbody>${rows}</tbody></table></div>`);
 });

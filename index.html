@@ -308,7 +308,7 @@
     const intent=btn.dataset.intent,st=g('submitStatus');
     document.querySelectorAll('.choice').forEach(b=>b.disabled=true);
     st.className='status';st.textContent='One sec\u2026';
-    const payload={phone:g('phone').value.trim(),year:yearSel.value,make:makeSel.value,model:modelSel.value,vin:vinIn.value.trim(),issues:[...selected],details:g('details').value.trim(),intent};
+    const payload={...(window.__visit||{}),phone:g('phone').value.trim(),year:yearSel.value,make:makeSel.value,model:modelSel.value,vin:vinIn.value.trim(),issues:[...selected],details:g('details').value.trim(),intent};
     try{
       const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),6000);
       await fetch(FN,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:ctrl.signal});
@@ -393,7 +393,8 @@
     const totals=steps.map(()=>0);
     let popupMs=0,firstPopupOpen=!tsModal.hidden,mark=performance.now(),visible=!document.hidden,furthest=0;
     const ts={popupShown:firstPopupOpen,sliderTouched:false,chosenIndex:firstPopupOpen?null:+tsRange.value,reopenedCount:0};
-    let vinValid=null;const groups=new Set();
+    let vinValid=null;const groups=new Set();let continueClicked=false,choice=null;
+    window.__visit={sessionId,visitorId,variantId:'control'};
     function tick(){const now=performance.now();if(visible){const dt=now-mark;if(firstPopupOpen)popupMs+=dt;else totals[i]+=dt;}mark=now;}
     function snapshot(){
       const y=!!yearSel.value,m=!!makeSel.value,mo=!!modelSel.value,vin=vinIn.value.trim();
@@ -401,7 +402,9 @@
         textSize:{...ts,chosenScale:ts.chosenIndex==null?null:TS[ts.chosenIndex],ms:Math.round(popupMs)},
         page1:{ms:Math.round(totals[0])},
         page2:{ms:Math.round(totals[1]),vinEntered:vin.length>0,vinValid:vin.length?vinValid:null,yearFilled:y,makeFilled:m,modelFilled:mo,allThreeFilled:y&&m&&mo},
-        page3:{ms:Math.round(totals[2]),groupsExpanded:groups.size,optionsSelected:selected.size,descriptionChars:detailsEl.value.trim().length}};
+        page3:{ms:Math.round(totals[2]),groupsExpanded:groups.size,optionsSelected:selected.size,descriptionChars:detailsEl.value.trim().length},
+        page4:{ms:Math.round(totals[3]),validPhone:(n=>n>=9&&n<=10)(digits(phoneEl.value).length),continueClicked},
+        page5:{ms:Math.round(totals[4]),choice}};
     }
     function flush(beacon){
       tick();const body=JSON.stringify(snapshot());
@@ -417,6 +420,8 @@
     document.getElementById('tsOpen').addEventListener('click',()=>{ts.reopenedCount++;});
     new MutationObserver(()=>{const c=vinStatus.className,t=vinStatus.textContent;if(/\bok\b/.test(c))vinValid=true;else if(/\berr\b/.test(c))vinValid=/right now/.test(t)?null:false;}).observe(vinStatus,{attributes:true,childList:true,characterData:true,subtree:true});
     cats.forEach(({cat,wrap,head})=>head.addEventListener('click',()=>{if(wrap.classList.contains('open'))groups.add(cat);}));
+    g('contactNext').addEventListener('click',()=>{continueClicked=true;flush();},true);
+    document.querySelectorAll('.choice').forEach(b=>b.addEventListener('click',()=>{const t=b.dataset.intent||'';choice=/call/i.test(t)?'call':/oil/i.test(t)?'oil change':'appointment';flush(true);},true));
     document.addEventListener('visibilitychange',()=>{if(document.hidden){flush(true);visible=false;}else{visible=true;mark=performance.now();}});
     window.addEventListener('pagehide',()=>flush(true));
     setInterval(()=>{if(visible)flush();},15000);
