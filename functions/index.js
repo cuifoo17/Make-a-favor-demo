@@ -325,29 +325,134 @@ export const track = onRequest({ region: REGION }, async (req, res) => {
   }
 });
 
-// Minimal private viewer: a table of recent visits. Protected by a key in the link until the real dashboard has a login.
+// ---------- Private viewer: My forms -> variants with averages -> logs ----------
+const VIEW_CSS = `
+  :root{--green:#4a9b3a;--blue:#1f6feb;--ink:#111;--muted:#666;--line:#e4e4e4;--bg:#fafafa}
+  *{box-sizing:border-box}body{font:15px/1.4 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;margin:0;color:var(--ink);background:var(--bg)}
+  .page{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:26px;margin:6px 0 4px}.crumbs{font-size:14px;color:var(--muted)}.crumbs a{color:var(--muted)}
+  .sub{color:var(--muted);margin:0 0 18px}
+  a{color:inherit}
+  .card{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;text-decoration:none;margin-bottom:12px}
+  .card:hover{border-color:var(--green)}.card .n{font-size:18px;font-weight:700}.card .m{color:var(--muted);font-size:14px}
+  .wrap{overflow:auto;background:#fff;border:1px solid var(--line);border-radius:14px}
+  table{border-collapse:collapse;width:100%}th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  th.v{min-width:190px}.vt{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.vt b{font-size:16px}
+  .btn{display:inline-block;background:var(--blue);color:#fff;text-decoration:none;font-weight:600;font-size:13px;padding:6px 12px;border-radius:8px}
+  tr.sec td{background:#f1f6ef;font-weight:700;color:#2f6b24;font-size:13px;text-transform:uppercase;letter-spacing:.04em}
+  td.k{color:#333}td.val{font-weight:600;font-variant-numeric:tabular-nums}
+  .note{color:var(--muted);font-size:13px;margin-top:12px}
+  table.logs{white-space:nowrap;font-size:14px}table.logs th{background:#f4f4f4;position:sticky;top:0}table.logs thead tr:first-child th{background:var(--green);color:#fff;text-align:center}
+`;
+const SIZES = ["smallest", "small", "middle", "large", "largest"];
+const esc = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const shell = (title, body) => `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>${VIEW_CSS}</style><div class="page">${body}</div></html>`;
+
+async function formsRegistry() {
+  // Seed the one form we have so the registry is never empty.
+  const ref = db.collection("forms").doc("do-favor-intake");
+  const snap = await ref.get();
+  if (!snap.exists) { await ref.set({ name: "Intake Form V1", createdAt: Date.now() }); await ref.collection("variants").doc("control").set({ name: "Original", createdAt: Date.now() }); }
+  const forms = await db.collection("forms").get();
+  return Promise.all(forms.docs.map(async (f) => ({ id: f.id, name: f.data().name || f.id, variants: (await f.ref.collection("variants").get()).docs.map((v) => ({ id: v.id, name: v.data().name || v.id })) })));
+}
+
+function aggregate(rows) {
+  const avg = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+  const pct = (xs) => (xs.length ? (100 * xs.filter(Boolean).length) / xs.length : null);
+  const reached = (n) => rows.filter((r) => (r.furthestPage || 0) >= n);
+  const n = rows.length, r2 = reached(1), r3 = reached(2), r4 = reached(3), r5 = reached(4);
+  const popup = rows.filter((r) => r.textSize?.popupShown);
+  const chosen = rows.map((r) => r.textSize?.chosenIndex).filter((x) => x != null);
+  const counts = SIZES.map((_, i) => chosen.filter((x) => x === i).length);
+  const top = counts.indexOf(Math.max(...counts));
+  const vinRows = r2.filter((r) => r.page2?.vinEntered);
+  const picked = rows.map((r) => r.page5?.choice).filter(Boolean);
+  return {
+    visits: n,
+    reach: [n ? 100 : null, pct(rows.map((r) => (r.furthestPage || 0) >= 1)), pct(rows.map((r) => (r.furthestPage || 0) >= 2)), pct(rows.map((r) => (r.furthestPage || 0) >= 3)), pct(rows.map((r) => (r.furthestPage || 0) >= 4))],
+    sliderTouched: pct(popup.map((r) => r.textSize.sliderTouched)),
+    sizeTop: chosen.length ? `${SIZES[top]} (${Math.round((100 * counts[top]) / chosen.length)}%)` : null,
+    reopened: pct(rows.map((r) => (r.textSize?.reopenedCount || 0) > 0)),
+    t1: avg(rows.map((r) => r.page1?.ms || 0)),
+    t2: avg(r2.map((r) => r.page2?.ms || 0)), vinEntered: pct(r2.map((r) => r.page2?.vinEntered)), vinValid: pct(vinRows.map((r) => r.page2?.vinValid === true)), allThree: pct(r2.map((r) => r.page2?.allThreeFilled)),
+    t3: avg(r3.map((r) => r.page3?.ms || 0)), groups: avg(r3.map((r) => r.page3?.groupsExpanded || 0)), options: avg(r3.map((r) => r.page3?.optionsSelected || 0)), chars: avg(r3.map((r) => r.page3?.descriptionChars || 0)), wrote: pct(r3.map((r) => (r.page3?.descriptionChars || 0) > 0)),
+    t4: avg(r4.map((r) => r.page4?.ms || 0)), validPhone: pct(r4.map((r) => r.page4?.validPhone)), clickedContinue: pct(r4.map((r) => r.page4?.continueClicked)),
+    t5: avg(r5.map((r) => r.page5?.ms || 0)), pickedAny: pct(r5.map((r) => !!r.page5?.choice)), call: pct(picked.map((c) => c === "call")), appt: pct(picked.map((c) => c === "appointment")),
+  };
+}
+
 export const sessionsView = onRequest({ region: REGION }, async (req, res) => {
   const cfg = (await db.collection("config").doc("dashboard").get()).data() || {};
   if (!cfg.key || req.query.key !== cfg.key) return res.status(403).send("Forbidden");
-  const snap = await db.collection("sessions").orderBy("startedAt", "desc").limit(100).get();
-  const sec = (ms) => (ms ? (ms / 1000).toFixed(1) + "s" : "0s");
-  const yn = (v) => (v === true ? "yes" : v === false ? "no" : "\u2014");
-  const sizes = ["smallest", "small", "middle", "large", "largest"];
-  const esc = (v) => String(v).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
-  const rows = snap.docs.map((x) => { const d = x.data(); const t = d.textSize || {}, a = d.page1 || {}, b = d.page2 || {}, c = d.page3 || {}, e4 = d.page4 || {}, e5 = d.page5 || {};
-    const when = new Date(d.startedAt).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" });
-    const device = /iPhone/.test(d.userAgent) ? "iPhone" : /Android/.test(d.userAgent) ? "Android" : /Macintosh/.test(d.userAgent) ? "Mac" : /Windows/.test(d.userAgent) ? "Windows" : "other";
-    return `<tr><td>${esc(when)}</td><td>${device}</td><td>${esc(d.variantId)}</td><td>${d.furthestPage + 1}</td>
-      <td>${yn(t.sliderTouched)}</td><td>${t.chosenIndex == null ? "\u2014" : sizes[t.chosenIndex]}</td><td>${t.reopenedCount || 0}</td>
-      <td>${sec(a.ms)}</td>
-      <td>${sec(b.ms)}</td><td>${yn(b.vinEntered)}</td><td>${b.vinEntered ? yn(b.vinValid) : "\u2014"}</td><td>${yn(b.allThreeFilled)}</td>
-      <td>${sec(c.ms)}</td><td>${c.groupsExpanded || 0}</td><td>${c.optionsSelected || 0}</td><td>${c.descriptionChars || 0}</td>
-      <td>${sec(e4.ms)}</td><td>${yn(e4.validPhone)}</td><td>${yn(e4.continueClicked)}</td>
-      <td>${sec(e5.ms)}</td><td>${e5.choice || "\u2014"}</td></tr>`; }).join("");
-  res.set("Cache-Control", "no-store").send(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Do Favor visits</title>
-  <style>body{font:14px -apple-system,system-ui,sans-serif;margin:16px;color:#111}h1{font-size:20px}table{border-collapse:collapse;white-space:nowrap}th,td{border:1px solid #ddd;padding:6px 8px;text-align:left}th{background:#f4f4f4;position:sticky;top:0}thead tr:first-child th{background:#4a9b3a;color:#fff;text-align:center}.wrap{overflow:auto}</style>
-  <h1>Do Favor intake: recent visits (${snap.size})</h1><p>Newest first. Times are seconds the page was on screen. Eastern time.</p><div class="wrap"><table>
-  <thead><tr><th colspan="4">Visit</th><th colspan="3">Text size</th><th>Page 1</th><th colspan="4">Page 2: car</th><th colspan="4">Page 3: issues</th><th colspan="3">Page 4: phone</th><th colspan="2">Page 5: choice</th></tr>
-  <tr><th>Started</th><th>Device</th><th>Variant</th><th>Furthest page</th><th>Moved slider</th><th>Size chosen</th><th>Reopened</th><th>Time</th><th>Time</th><th>VIN entered</th><th>VIN valid</th><th>Year+make+model</th><th>Time</th><th>Groups opened</th><th>Options picked</th><th>Description chars</th><th>Time</th><th>Valid phone</th><th>Clicked continue</th><th>Time</th><th>Picked</th></tr></thead>
-  <tbody>${rows}</tbody></table></div>`);
+  res.set("Cache-Control", "no-store");
+  const K = encodeURIComponent(cfg.key);
+  const link = (q) => `?key=${K}${Object.entries(q).map(([k, v]) => `&${k}=${encodeURIComponent(v)}`).join("")}`;
+  const forms = await formsRegistry();
+  const formId = req.query.form ? String(req.query.form) : null;
+  const variantId = req.query.variant ? String(req.query.variant) : null;
+
+  // ----- Page 1: My forms
+  if (!formId) {
+    const cards = await Promise.all(forms.map(async (f) => {
+      const c = await db.collection("sessions").where("formId", "==", f.id).count().get();
+      return `<a class="card" href="${link({ form: f.id })}"><span><span class="n">${esc(f.name)}</span><br><span class="m">${f.variants.length} variant${f.variants.length === 1 ? "" : "s"} · ${c.data().count} visits</span></span><span class="m">›</span></a>`;
+    }));
+    return res.send(shell("My forms", `<h1>My forms</h1><p class="sub">Pick a form to see how its variants are doing.</p>${cards.join("")}`));
+  }
+
+  const form = forms.find((f) => f.id === formId);
+  if (!form) return res.status(404).send(shell("Not found", `<p>No such form.</p><p><a href="${link({})}">My forms</a></p>`));
+  const snap = await db.collection("sessions").where("formId", "==", formId).get();
+  const all = snap.docs.map((x) => x.data());
+  // Any variant seen in the data but missing from the registry still gets a column.
+  const variants = [...form.variants];
+  for (const v of new Set(all.map((r) => r.variantId || "control"))) if (!variants.some((x) => x.id === v)) variants.push({ id: v, name: v });
+
+  // ----- Page 3: logs for one variant
+  if (variantId) {
+    const v = variants.find((x) => x.id === variantId) || { id: variantId, name: variantId };
+    const rowsData = all.filter((r) => (r.variantId || "control") === variantId).sort((a, b) => b.startedAt - a.startedAt).slice(0, 300);
+    const sec = (ms) => (ms ? (ms / 1000).toFixed(1) + "s" : "0s");
+    const yn = (x) => (x === true ? "yes" : x === false ? "no" : "—");
+    const rows = rowsData.map((d) => { const t = d.textSize || {}, a = d.page1 || {}, b = d.page2 || {}, c = d.page3 || {}, e4 = d.page4 || {}, e5 = d.page5 || {};
+      const when = new Date(d.startedAt).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" });
+      const device = /iPhone/.test(d.userAgent) ? "iPhone" : /Android/.test(d.userAgent) ? "Android" : /Macintosh/.test(d.userAgent) ? "Mac" : /Windows/.test(d.userAgent) ? "Windows" : "other";
+      return `<tr><td>${esc(when)}</td><td>${device}</td><td>${(d.furthestPage || 0) + 1}</td>
+        <td>${yn(t.sliderTouched)}</td><td>${t.chosenIndex == null ? "—" : SIZES[t.chosenIndex]}</td><td>${t.reopenedCount || 0}</td>
+        <td>${sec(a.ms)}</td>
+        <td>${sec(b.ms)}</td><td>${yn(b.vinEntered)}</td><td>${b.vinEntered ? yn(b.vinValid) : "—"}</td><td>${yn(b.allThreeFilled)}</td>
+        <td>${sec(c.ms)}</td><td>${c.groupsExpanded || 0}</td><td>${c.optionsSelected || 0}</td><td>${c.descriptionChars || 0}</td>
+        <td>${sec(e4.ms)}</td><td>${yn(e4.validPhone)}</td><td>${yn(e4.continueClicked)}</td>
+        <td>${sec(e5.ms)}</td><td>${e5.choice || "—"}</td></tr>`; }).join("");
+    return res.send(shell(`${v.name} logs`, `<div class="crumbs"><a href="${link({})}">My forms</a> › <a href="${link({ form: formId })}">${esc(form.name)}</a> › ${esc(v.name)}</div>
+      <h1>${esc(v.name)}: logs</h1><p class="sub">${rowsData.length} visits, newest first. Times are seconds the page was on screen. Eastern time.</p>
+      <div class="wrap"><table class="logs"><thead><tr><th colspan="3">Visit</th><th colspan="3">Text size</th><th>Page 1</th><th colspan="4">Page 2: car</th><th colspan="4">Page 3: issues</th><th colspan="3">Page 4: phone</th><th colspan="2">Page 5: choice</th></tr>
+      <tr><th>Started</th><th>Device</th><th>Furthest page</th><th>Moved slider</th><th>Size chosen</th><th>Reopened</th><th>Time</th><th>Time</th><th>VIN entered</th><th>VIN valid</th><th>Year+make+model</th><th>Time</th><th>Groups opened</th><th>Options picked</th><th>Description chars</th><th>Time</th><th>Valid phone</th><th>Clicked continue</th><th>Time</th><th>Picked</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`));
+  }
+
+  // ----- Page 2: variants side by side with averages
+  const aggs = variants.map((v) => ({ v, a: aggregate(all.filter((r) => (r.variantId || "control") === v.id)) }));
+  const s1 = (ms) => (ms == null ? "—" : (ms / 1000).toFixed(1) + "s");
+  const p0 = (x) => (x == null ? "—" : Math.round(x) + "%");
+  const n1 = (x) => (x == null ? "—" : x.toFixed(1));
+  const R = (label, f) => `<tr><td class="k">${label}</td>${aggs.map(({ a }) => `<td class="val">${f(a)}</td>`).join("")}</tr>`;
+  const S = (label) => `<tr class="sec"><td colspan="${aggs.length + 1}">${label}</td></tr>`;
+  const head = `<tr><th></th>${aggs.map(({ v }) => `<th class="v"><div class="vt"><b>${esc(v.name)}</b><a class="btn" href="${link({ form: formId, variant: v.id })}">See logs</a></div></th>`).join("")}</tr>`;
+  const body = [
+    S("Visits"), R("Total visits", (a) => a.visits),
+    R("Reached page 2, car", (a) => p0(a.reach[1])), R("Reached page 3, issues", (a) => p0(a.reach[2])), R("Reached page 4, phone", (a) => p0(a.reach[3])), R("Reached page 5, choice", (a) => p0(a.reach[4])),
+    S("Text size"), R("Moved the slider", (a) => p0(a.sliderTouched)), R("Most common size", (a) => a.sizeTop || "—"), R("Reopened it later", (a) => p0(a.reopened)),
+    S("Page 1: video"), R("Avg time", (a) => s1(a.t1)),
+    S("Page 2: car"), R("Avg time", (a) => s1(a.t2)), R("Entered a VIN", (a) => p0(a.vinEntered)), R("VIN was valid, of those entered", (a) => p0(a.vinValid)), R("Filled year, make, and model", (a) => p0(a.allThree)),
+    S("Page 3: issues"), R("Avg time", (a) => s1(a.t3)), R("Avg groups opened", (a) => n1(a.groups)), R("Avg options picked", (a) => n1(a.options)), R("Wrote a description", (a) => p0(a.wrote)), R("Avg description length, characters", (a) => (a.chars == null ? "—" : Math.round(a.chars))),
+    S("Page 4: phone"), R("Avg time", (a) => s1(a.t4)), R("Entered a valid phone", (a) => p0(a.validPhone)), R("Tapped Continue", (a) => p0(a.clickedContinue)),
+    S("Page 5: choice"), R("Avg time", (a) => s1(a.t5)), R("Picked an option", (a) => p0(a.pickedAny)), R("Chose call, of those who picked", (a) => p0(a.call)), R("Chose appointment, of those who picked", (a) => p0(a.appt)),
+  ].join("");
+  res.send(shell(form.name, `<div class="crumbs"><a href="${link({})}">My forms</a> › ${esc(form.name)}</div>
+    <h1>${esc(form.name)}</h1><p class="sub">${variants.length} variant${variants.length === 1 ? "" : "s"} · ${all.length} visits</p>
+    <div class="wrap"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>
+    <p class="note">Each page's numbers only count visitors who got to that page. Yes-or-no items show the share that was yes.</p>`));
 });
