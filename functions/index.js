@@ -353,6 +353,7 @@ const VIEW_CSS = `
   a.lnk{color:var(--blue);text-decoration:underline;text-underline-offset:3px;font-weight:500;font-size:13px}
   tr.sec td{background:#000;color:#fff;font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.1em;padding:12px 14px;border-bottom:1px solid #2a2a2a}
   tr.sec{cursor:pointer;user-select:none}
+  tr.sec.static{cursor:default}
   tr.sec .sl{display:inline-flex;align-items:center;gap:10px}
   tr.sec .chev{width:18px;height:18px;transition:transform .2s}
   tbody.grp.open tr.sec .chev{transform:rotate(180deg)}
@@ -383,7 +384,7 @@ async function formsRegistry() {
   return Promise.all(forms.docs.map(async (f) => ({ id: f.id, name: f.data().name || f.id, variants: (await f.ref.collection("variants").get()).docs.map((v) => ({ id: v.id, name: v.data().name || v.id })) })));
 }
 
-function aggregate(rows) {
+function aggregate(rows, booked = new Set()) {
   const avg = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
   const pct = (xs) => (xs.length ? (100 * xs.filter(Boolean).length) / xs.length : null);
   const reached = (n) => rows.filter((r) => (r.furthestPage || 0) >= n);
@@ -395,6 +396,8 @@ function aggregate(rows) {
   const vinRows = r2.filter((r) => r.page2?.vinEntered);
   const picked = rows.map((r) => r.page5?.choice).filter(Boolean);
   return {
+    wentToJobber: pct(rows.map((r) => !!r.page5?.choice)),
+    gaveContact: pct(rows.map((r) => booked.has(r.sessionId))),
     visits: n,
     reach: [n ? 100 : null, pct(rows.map((r) => (r.furthestPage || 0) >= 1)), pct(rows.map((r) => (r.furthestPage || 0) >= 2)), pct(rows.map((r) => (r.furthestPage || 0) >= 3)), pct(rows.map((r) => (r.furthestPage || 0) >= 4))],
     sliderTouched: pct(popup.map((r) => r.textSize.sliderTouched)),
@@ -460,7 +463,10 @@ export const sessionsView = onRequest({ region: REGION }, async (req, res) => {
   }
 
   // ----- Page 2: variants side by side with averages
-  const aggs = variants.map((v) => ({ v, a: aggregate(all.filter((r) => (r.variantId || "control") === v.id)) }));
+  // Visits whose Jobber form was actually submitted: the webhook matched their intake to a new Jobber client, request, or job.
+  const intakeSnap = await db.collection("intakes").get();
+  const booked = new Set(intakeSnap.docs.map((x) => x.data()).filter((x) => x.sessionId && x.attached && Object.keys(x.attached).length).map((x) => x.sessionId));
+  const aggs = variants.map((v) => ({ v, a: aggregate(all.filter((r) => (r.variantId || "control") === v.id), booked) }));
   const s1 = (ms) => (ms == null ? "—" : (ms / 1000).toFixed(1) + "s");
   const p0 = (x) => (x == null ? "—" : Math.round(x) + "%");
   const n1 = (x) => (x == null ? "—" : x.toFixed(1));
@@ -469,6 +475,8 @@ export const sessionsView = onRequest({ region: REGION }, async (req, res) => {
   const S = (label) => `</tbody><tbody class="grp"><tr class="sec" role="button" tabindex="0" aria-expanded="false"><td colspan="${aggs.length + 1}"><span class="sl">${label}${CHEV}</span></td></tr>`;
   const head = `<tr class="vh"><th class="vtitle">VARIANTS</th>${aggs.map(({ v }) => `<th class="v"><div class="vt"><b>${esc(v.name)}</b><a class="lnk" href="${link({ form: formId, variant: v.id })}">(logs)</a></div></th>`).join("")}</tr>`;
   const body = [
+    `<tr class="sec static"><td colspan="${aggs.length + 1}"><span class="sl">Overview</span></td></tr>`,
+    R("Total Visits", (a) => a.visits), R("Went to Jobber", (a) => p0(a.wentToJobber)), R("Gave contact details", (a) => p0(a.gaveContact)),
     S("Visits"), R("Total visits", (a) => a.visits),
     R("Reached page 2, car", (a) => p0(a.reach[1])), R("Reached page 3, issues", (a) => p0(a.reach[2])), R("Reached page 4, phone", (a) => p0(a.reach[3])), R("Reached page 5, choice", (a) => p0(a.reach[4])),
     S("Text size"), R("Moved the slider", (a) => p0(a.sliderTouched)), R("Most common size", (a) => a.sizeTop || "—"), R("Reopened it later", (a) => p0(a.reopened)),
