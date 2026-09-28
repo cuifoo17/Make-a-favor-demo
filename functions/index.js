@@ -345,6 +345,8 @@ const VIEW_CSS = `
   table{border-collapse:collapse;width:100%}th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
   tbody:last-child tr:last-child td{border-bottom:0}
   thead th{background:#fff;border-bottom:2px solid #000}
+  thead tr.vh th{background:#000;color:#fff;border-bottom:1px solid #2a2a2a}
+  th.vtitle{font-size:13px;font-weight:600;letter-spacing:.12em}
   th.v{min-width:200px}.vt{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.vt b{font-size:15px;font-weight:600}
   .btn{display:inline-block;background:var(--blue);color:#fff;text-decoration:none;font-weight:500;font-size:12px;padding:6px 12px;border-radius:6px;letter-spacing:.02em}
   .btn:hover{filter:brightness(1.1)}
@@ -464,7 +466,7 @@ export const sessionsView = onRequest({ region: REGION }, async (req, res) => {
   const R = (label, f) => `<tr><td class="k">${label}</td>${aggs.map(({ a }) => `<td class="val">${f(a)}</td>`).join("")}</tr>`;
   const CHEV = `<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>`;
   const S = (label) => `</tbody><tbody class="grp"><tr class="sec" role="button" tabindex="0" aria-expanded="false"><td colspan="${aggs.length + 1}"><span class="sl">${label}${CHEV}</span></td></tr>`;
-  const head = `<tr><th></th>${aggs.map(({ v }) => `<th class="v"><div class="vt"><b>${esc(v.name)}</b><a class="btn" href="${link({ form: formId, variant: v.id })}">See logs</a></div></th>`).join("")}</tr>`;
+  const head = `<tr class="vh"><th class="vtitle">VARIANTS</th>${aggs.map(({ v }) => `<th class="v"><div class="vt"><b>${esc(v.name)}</b><a class="btn" href="${link({ form: formId, variant: v.id })}">See logs</a></div></th>`).join("")}</tr>`;
   const body = [
     S("Visits"), R("Total visits", (a) => a.visits),
     R("Reached page 2, car", (a) => p0(a.reach[1])), R("Reached page 3, issues", (a) => p0(a.reach[2])), R("Reached page 4, phone", (a) => p0(a.reach[3])), R("Reached page 5, choice", (a) => p0(a.reach[4])),
