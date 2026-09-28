@@ -417,7 +417,7 @@ export const sessionsView = onRequest({ region: REGION }, async (req, res) => {
       const c = await db.collection("sessions").where("formId", "==", f.id).count().get();
       return `<a class="card" href="${link({ form: f.id })}"><span><span class="n">${esc(f.name)}</span><br><span class="m">${f.variants.length} variant${f.variants.length === 1 ? "" : "s"} · ${c.data().count} visits</span></span><span class="m">›</span></a>`;
     }));
-    return res.send(shell("My forms", `<h1>My forms</h1><p class="sub">Pick a form to see how its variants are doing.</p>${cards.join("")}`));
+    return res.send(shell("My forms", `<h1>My forms</h1><p class="sub">Pick a form to see how its variants are doing.</p>${cards.join("")}<h1 style="margin-top:36px">My websites</h1>`));
   }
 
   const form = forms.find((f) => f.id === formId);
