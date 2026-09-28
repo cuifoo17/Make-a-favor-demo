@@ -486,6 +486,5 @@ export const sessionsView = onRequest({ region: REGION }, async (req, res) => {
   res.send(shell(form.name, `<div class="crumbs"><a href="${link({})}">My forms</a> › ${esc(form.name)}</div>
     <h1>${esc(form.name)}</h1><p class="sub">${variants.length} variant${variants.length === 1 ? "" : "s"} · ${all.length} visits</p>
     <div class="wrap"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>
-    <p class="note">Tap a section to open it. Each page's numbers only count visitors who got to that page. Yes-or-no items show the share that was yes.</p>
     <script>document.querySelectorAll('tbody.grp > tr.sec').forEach(function(r){function t(){var g=r.parentNode,o=!g.classList.contains('open');g.classList.toggle('open',o);r.setAttribute('aria-expanded',o);}r.addEventListener('click',t);r.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();t();}});});</script>`));
 });
