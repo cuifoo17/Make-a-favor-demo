@@ -327,27 +327,44 @@ export const track = onRequest({ region: REGION }, async (req, res) => {
 
 // ---------- Private viewer: My forms -> variants with averages -> logs ----------
 const VIEW_CSS = `
-  :root{--green:#4a9b3a;--blue:#1f6feb;--ink:#111;--muted:#666;--line:#e4e4e4;--bg:#fafafa}
-  *{box-sizing:border-box}body{font:15px/1.4 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;margin:0;color:var(--ink);background:var(--bg)}
-  .page{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
-  h1{font-size:26px;margin:6px 0 4px}.crumbs{font-size:14px;color:var(--muted)}.crumbs a{color:var(--muted)}
-  .sub{color:var(--muted);margin:0 0 18px}
+  :root{--green:#56b044;--green-d:#2f6b24;--blue:#1f6feb;--ink:#0b0b0b;--muted:#6b6b6b;--line:#e2e2e2;--bg:#f6f6f4}
+  *{box-sizing:border-box}
+  body{font:14px/1.5 "IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;margin:0;color:var(--ink);background:var(--bg)}
+  header.top{background:#000;position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 20px}
+  header.top a.logo{display:flex;align-items:center}
+  header.top img{height:40px;width:auto;display:block}
+  header.top .tag{color:#9a9a9a;font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+  .page{max-width:1100px;margin:0 auto;padding:24px 16px 72px}
+  h1{font-size:24px;font-weight:600;margin:8px 0 4px;letter-spacing:-.01em}
+  .crumbs{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}.crumbs a{color:var(--muted);text-decoration:none;border-bottom:1px solid #c8c8c8}
+  .sub{color:var(--muted);margin:0 0 20px;font-size:13px}
   a{color:inherit}
-  .card{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;text-decoration:none;margin-bottom:12px}
-  .card:hover{border-color:var(--green)}.card .n{font-size:18px;font-weight:700}.card .m{color:var(--muted);font-size:14px}
-  .wrap{overflow:auto;background:#fff;border:1px solid var(--line);border-radius:14px}
-  table{border-collapse:collapse;width:100%}th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
+  .card{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px 20px;text-decoration:none;margin-bottom:12px;transition:border-color .15s,transform .15s}
+  .card:hover{border-color:#000;transform:translateY(-1px)}.card .n{font-size:17px;font-weight:600}.card .m{color:var(--muted);font-size:13px}.card .go{font-size:20px;color:#000}
+  .wrap{overflow:auto;background:#fff;border:1px solid var(--line);border-radius:10px}
+  table{border-collapse:collapse;width:100%}th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
   tr:last-child td{border-bottom:0}
-  th.v{min-width:190px}.vt{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.vt b{font-size:16px}
-  .btn{display:inline-block;background:var(--blue);color:#fff;text-decoration:none;font-weight:600;font-size:13px;padding:6px 12px;border-radius:8px}
-  tr.sec td{background:#f1f6ef;font-weight:700;color:#2f6b24;font-size:13px;text-transform:uppercase;letter-spacing:.04em}
+  thead th{background:#fff;border-bottom:2px solid #000}
+  th.v{min-width:200px}.vt{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.vt b{font-size:15px;font-weight:600}
+  .btn{display:inline-block;background:var(--blue);color:#fff;text-decoration:none;font-weight:500;font-size:12px;padding:6px 12px;border-radius:6px;letter-spacing:.02em}
+  .btn:hover{filter:brightness(1.1)}
+  tr.sec td{background:#000;color:#fff;font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.1em;padding:7px 14px}
   td.k{color:#333}td.val{font-weight:600;font-variant-numeric:tabular-nums}
-  .note{color:var(--muted);font-size:13px;margin-top:12px}
-  table.logs{white-space:nowrap;font-size:14px}table.logs th{background:#f4f4f4;position:sticky;top:0}table.logs thead tr:first-child th{background:var(--green);color:#fff;text-align:center}
+  tbody tr:not(.sec):hover td{background:#fafaf7}
+  .note{color:var(--muted);font-size:12px;margin-top:14px}
+  table.logs{white-space:nowrap;font-size:13px}
+  table.logs thead th{position:sticky;top:0;background:#fff}
+  table.logs thead tr:first-child th{background:#000;color:#fff;text-align:center;font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.1em;border-bottom:0;border-right:1px solid #333}
+  table.logs td{font-variant-numeric:tabular-nums}
 `;
 const SIZES = ["smallest", "small", "middle", "large", "largest"];
 const esc = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const shell = (title, body) => `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>${VIEW_CSS}</style><div class="page">${body}</div></html>`;
+const LOGO = "https://cuifoo17.github.io/Make-a-favor-demo/assets/logo-dark.png";
+let HOME_LINK = "?";
+const shell = (title, body) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>${VIEW_CSS}</style></head><body><header class="top"><a class="logo" href="${HOME_LINK}"><img src="${LOGO}" alt="Do Favor"></a><span class="tag">Form analytics</span></header><div class="page">${body}</div></body></html>`;
 
 async function formsRegistry() {
   // Seed the one form we have so the registry is never empty.
@@ -389,6 +406,7 @@ export const sessionsView = onRequest({ region: REGION }, async (req, res) => {
   res.set("Cache-Control", "no-store");
   const K = encodeURIComponent(cfg.key);
   const link = (q) => `?key=${K}${Object.entries(q).map(([k, v]) => `&${k}=${encodeURIComponent(v)}`).join("")}`;
+  HOME_LINK = link({});
   const forms = await formsRegistry();
   const formId = req.query.form ? String(req.query.form) : null;
   const variantId = req.query.variant ? String(req.query.variant) : null;
