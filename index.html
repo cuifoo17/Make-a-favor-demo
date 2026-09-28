@@ -383,6 +383,45 @@
   document.getElementById('vinInfo').addEventListener('click',e=>{e.preventDefault();vinModal.hidden=false;});
   document.getElementById('vinClose').addEventListener('click',()=>vinModal.hidden=true);
   vinModal.addEventListener('click',e=>{if(e.target===vinModal)vinModal.hidden=true;});
+
+  // ---------- Tracking ----------
+  (function(){
+    const TRACK="https://us-central1-do-favor-demo.cloudfunctions.net/track";
+    const rid=()=>{const a=new Uint8Array(12);crypto.getRandomValues(a);return [...a].map(b=>b.toString(16).padStart(2,'0')).join('');};
+    let visitorId;try{visitorId=localStorage.getItem('df_vid');if(!visitorId){visitorId=rid();localStorage.setItem('df_vid',visitorId);}}catch(e){visitorId=rid();}
+    const sessionId=rid(),startedAt=Date.now();
+    const totals=steps.map(()=>0);
+    let popupMs=0,firstPopupOpen=!tsModal.hidden,mark=performance.now(),visible=!document.hidden,furthest=0;
+    const ts={popupShown:firstPopupOpen,sliderTouched:false,chosenIndex:firstPopupOpen?null:+tsRange.value,reopenedCount:0};
+    let vinValid=null;const groups=new Set();
+    function tick(){const now=performance.now();if(visible){const dt=now-mark;if(firstPopupOpen)popupMs+=dt;else totals[i]+=dt;}mark=now;}
+    function snapshot(){
+      const y=!!yearSel.value,m=!!makeSel.value,mo=!!modelSel.value,vin=vinIn.value.trim();
+      return {sessionId,visitorId,formId:'do-favor-intake',variantId:'control',startedAt,furthestPage:furthest,
+        textSize:{...ts,chosenScale:ts.chosenIndex==null?null:TS[ts.chosenIndex],ms:Math.round(popupMs)},
+        page1:{ms:Math.round(totals[0])},
+        page2:{ms:Math.round(totals[1]),vinEntered:vin.length>0,vinValid:vin.length?vinValid:null,yearFilled:y,makeFilled:m,modelFilled:mo,allThreeFilled:y&&m&&mo},
+        page3:{ms:Math.round(totals[2]),groupsExpanded:groups.size,optionsSelected:selected.size,descriptionChars:detailsEl.value.trim().length}};
+    }
+    function flush(beacon){
+      tick();const body=JSON.stringify(snapshot());
+      try{
+        if(beacon&&navigator.sendBeacon){navigator.sendBeacon(TRACK,new Blob([body],{type:'text/plain'}));return;}
+        fetch(TRACK,{method:'POST',headers:{'Content-Type':'text/plain'},body,keepalive:true}).catch(()=>{});
+      }catch(e){}
+    }
+    const _show=show;
+    show=function(n){if(n<0||n>=steps.length)return;tick();_show(n);furthest=Math.max(furthest,i);flush();};
+    tsRange.addEventListener('input',()=>{ts.sliderTouched=true;});
+    document.getElementById('tsDone').addEventListener('click',()=>{tick();firstPopupOpen=false;ts.chosenIndex=+tsRange.value;flush();});
+    document.getElementById('tsOpen').addEventListener('click',()=>{ts.reopenedCount++;});
+    new MutationObserver(()=>{const c=vinStatus.className,t=vinStatus.textContent;if(/\bok\b/.test(c))vinValid=true;else if(/\berr\b/.test(c))vinValid=/right now/.test(t)?null:false;}).observe(vinStatus,{attributes:true,childList:true,characterData:true,subtree:true});
+    cats.forEach(({cat,wrap,head})=>head.addEventListener('click',()=>{if(wrap.classList.contains('open'))groups.add(cat);}));
+    document.addEventListener('visibilitychange',()=>{if(document.hidden){flush(true);visible=false;}else{visible=true;mark=performance.now();}});
+    window.addEventListener('pagehide',()=>flush(true));
+    setInterval(()=>{if(visible)flush();},15000);
+    flush();
+  })();
 </script>
 </body>
 </html>
