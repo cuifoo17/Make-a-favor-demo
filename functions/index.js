@@ -3,6 +3,7 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { defineSecret } from "firebase-functions/params";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 import crypto from "node:crypto";
 
 initializeApp();
@@ -365,6 +366,41 @@ const VIEW_CSS = `
   table.logs thead th{position:sticky;top:0;background:#fff}
   table.logs thead tr:first-child th{background:#000;color:#fff;text-align:center;font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.1em;border-bottom:0;border-right:1px solid #333}
   table.logs td{font-variant-numeric:tabular-nums}
+  h2{font-size:17px;font-weight:600;margin:0}
+  .sechead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:28px 0 6px}
+  .card.car{justify-content:flex-start;padding:12px 14px}
+  .card.car img{width:96px;height:64px;object-fit:cover;border-radius:6px;flex:none;background:#eee}
+  .card.car .ci{flex:1;min-width:0}
+  .pill{display:inline-block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;padding:2px 8px;border-radius:999px;border:1px solid #c8c8c8;margin:6px 6px 0 0;color:#333;background:#fff}
+  .pill.sold{background:#000;color:#fff;border-color:#000}.pill.coming-soon{background:var(--green-d);color:#fff;border-color:var(--green-d)}.pill.feat{background:var(--blue);color:#fff;border-color:var(--blue)}
+  form.cf{display:grid;gap:20px;max-width:640px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:20px}
+  .cf .row{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+  .cf .lab,.cf label.f{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .cf label.f{display:grid;gap:6px}.cf .lab{margin-bottom:8px}
+  .cf input[type=text]{font:inherit;font-size:16px;color:var(--ink);padding:12px;border:1px solid #c8c8c8;border-radius:8px;width:100%;background:#fff;text-transform:none;letter-spacing:0}
+  .cf input[type=text]:focus{outline:2px solid #000;outline-offset:1px}
+  .segs{display:flex;flex-wrap:wrap;gap:8px}
+  .seg input,.sw input{position:absolute;opacity:0;pointer-events:none}
+  .seg span{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border:1px solid #c8c8c8;border-radius:8px;cursor:pointer;font-weight:500}
+  .seg input:checked+span{background:#000;border-color:#000;color:#fff}
+  .seg input:focus-visible+span,.sw input:focus-visible+.tr{outline:2px solid var(--blue);outline-offset:2px}
+  .sw{display:flex;align-items:center;gap:12px;cursor:pointer;font-weight:500}
+  .sw .tr{width:52px;height:30px;border-radius:999px;background:#c8c8c8;position:relative;transition:background .15s;flex:none}
+  .sw .tr::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform .15s}
+  .sw input:checked+.tr{background:var(--green)}.sw input:checked+.tr::after{transform:translateX(22px)}
+  .hint{color:var(--muted);font-size:12px;margin:8px 0 0}
+  .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+  .pgrid figure{position:relative;margin:0;aspect-ratio:4/3;border-radius:8px;overflow:hidden;background:#eee}
+  .pgrid img{width:100%;height:100%;object-fit:cover;display:block}
+  .pgrid button{position:absolute;top:4px;right:4px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.75);color:#fff;font-size:20px;line-height:1;cursor:pointer}
+  .pgrid figcaption{position:absolute;left:4px;bottom:4px;background:#000;color:#fff;font-size:10px;text-transform:uppercase;letter-spacing:.08em;padding:2px 6px;border-radius:4px}
+  .addp{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border:1px dashed #888;border-radius:8px;cursor:pointer;font-weight:500;margin-top:10px}
+  .addp input{display:none}
+  .err{color:#b00101;font-weight:500;margin:0}.err:empty{display:none}
+  .actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  button.btn{border:0;font:inherit;font-weight:500;font-size:14px;padding:12px 22px;cursor:pointer}
+  button.btn:disabled{opacity:.6;cursor:default}
+  button.del{border:0;background:none;font:inherit;color:#b00101;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:12px 0}
 `;
 const SIZES = ["smallest", "small", "middle", "large", "largest"];
 const esc = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -412,12 +448,13 @@ function aggregate(rows) {
 }
 
 export const sessionsView = onRequest({ region: REGION }, async (req, res) => {
-  const cfg = (await db.collection("config").doc("dashboard").get()).data() || {};
-  if (!cfg.key || req.query.key !== cfg.key) return res.status(403).send("Forbidden");
+  const key = await dashboardKey(req);
+  if (!key) return res.status(403).send("Forbidden");
   res.set("Cache-Control", "no-store");
-  const K = encodeURIComponent(cfg.key);
+  const K = encodeURIComponent(key);
   const link = (q) => `?key=${K}${Object.entries(q).map(([k, v]) => `&${k}=${encodeURIComponent(v)}`).join("")}`;
   HOME_LINK = link({});
+  if (req.query.site) return siteView(req, res, link, K);
   const forms = await formsRegistry();
   const formId = req.query.form ? String(req.query.form) : null;
   const variantId = req.query.variant ? String(req.query.variant) : null;
@@ -428,7 +465,11 @@ export const sessionsView = onRequest({ region: REGION }, async (req, res) => {
       const c = await db.collection("sessions").where("formId", "==", f.id).count().get();
       return `<a class="card" href="${link({ form: f.id })}"><span><span class="n">${esc(f.name)}</span><br><span class="m">${f.variants.length} variant${f.variants.length === 1 ? "" : "s"} · ${c.data().count} visits</span></span><span class="m">›</span></a>`;
     }));
-    return res.send(shell("My forms", `<h1>My forms</h1><p class="sub">Pick a form to see how its variants are doing.</p>${cards.join("")}<h1 style="margin-top:36px">My websites</h1>`));
+    const siteCards = await Promise.all(Object.entries(SITES).map(async ([id, s]) => {
+      const c = (await db.collection("cars").where("site", "==", id).count().get()).data().count;
+      return `<a class="card" href="${link({ site: id })}"><span><span class="n">${esc(s.name)}</span><br><span class="m">${c} car${c === 1 ? "" : "s"}</span></span><span class="m">›</span></a>`;
+    }));
+    return res.send(shell("My forms", `<h1>My forms</h1><p class="sub">Pick a form to see how its variants are doing.</p>${cards.join("")}<h1 style="margin-top:36px">My websites</h1><p class="sub">Pick a website to manage its cars.</p>${siteCards.join("")}`));
   }
 
   const form = forms.find((f) => f.id === formId);
@@ -488,3 +529,216 @@ export const sessionsView = onRequest({ region: REGION }, async (req, res) => {
     <div class="wrap"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>
     <script>document.querySelectorAll('tbody.grp > tr.sec').forEach(function(r){function t(){var g=r.parentNode,o=!g.classList.contains('open');g.classList.toggle('open',o);r.setAttribute('aria-expanded',o);}r.addEventListener('click',t);r.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();t();}});});</script>`));
 });
+
+// ---------- Websites: car profiles ----------
+const SITES = { "auto-favors": { name: "Auto Favors", url: "https://cuifoo17.github.io/AF-BRB-Website/" } };
+const BUCKET = `${PROJECT}.firebasestorage.app`;
+const PHOTO_BASE = `https://firebasestorage.googleapis.com/v0/b/${BUCKET}/o/`;
+const CATEGORIES = ["economy", "commercial", "luxury"];
+const STATUSES = ["available", "coming soon", "sold"];
+const MAX_PHOTOS = 25;
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const carName = (c) => `${c.year} ${c.make} ${c.model}`;
+const wholeNumber = (v, max) => { const s = String(v ?? "").split(".")[0].replace(/\D/g, ""); return s ? Math.min(max, Number(s)) : null; };
+
+async function dashboardKey(req) {
+  const cfg = (await db.collection("config").doc("dashboard").get()).data() || {};
+  return cfg.key && req.query.key === cfg.key ? cfg.key : null;
+}
+const siteCars = async (siteId) => (await db.collection("cars").where("site", "==", siteId).get()).docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => b.createdAt - a.createdAt);
+
+// The public website reads its cars from here.
+export const cars = onRequest({ region: REGION }, async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Cache-Control", "no-store");
+  const list = await siteCars(String(req.query.site || "auto-favors"));
+  res.json({ cars: list.map((c) => ({ id: c.id, year: c.year, make: c.make, model: c.model, price: c.price ?? null, miles: c.miles ?? null, moreInfoUrl: c.moreInfoUrl || "", category: c.category, status: c.status, featured: !!c.featured, photos: (c.photos || []).map((p) => ({ url: p.url, alt: p.alt || "" })) })) });
+});
+
+function readCar(d, site) {
+  const year = wholeNumber(d.year, 2100), make = String(d.make || "").trim().slice(0, 40), model = String(d.model || "").trim().slice(0, 60);
+  if (!year || year < 1900 || !make || !model) return { error: "Year, make and model are required." };
+  if (!CATEGORIES.includes(d.category)) return { error: "Pick a category." };
+  if (!STATUSES.includes(d.status)) return { error: "Pick a status." };
+  let moreInfoUrl = String(d.moreInfoUrl || "").trim().slice(0, 500);
+  if (moreInfoUrl && !/^https?:\/\//i.test(moreInfoUrl)) moreInfoUrl = "https://" + moreInfoUrl;
+  // A photo is either one we stored ourselves or one that already lives on the website.
+  const photos = (Array.isArray(d.photos) ? d.photos : []).map((p) => {
+    const url = String(p?.url || ""), path = String(p?.path || "");
+    if (/^cars\/[a-f0-9]{24}\.jpg$/.test(path) && url.startsWith(PHOTO_BASE)) return { url, path, alt: "" };
+    if (!path && url.startsWith(site.url)) return { url, alt: String(p.alt || "").slice(0, 200) };
+    return null;
+  }).filter(Boolean);
+  if (!photos.length) return { error: "Add at least one picture." };
+  if (photos.length > MAX_PHOTOS) return { error: `A car can have up to ${MAX_PHOTOS} pictures.` };
+  return { car: { year, make, model, price: wholeNumber(d.price, 1e7), miles: wholeNumber(d.miles, 2e6), moreInfoUrl, category: d.category, status: d.status, featured: d.featured === true, photos } };
+}
+
+// The car form in the viewer posts here: one photo at a time, then the profile itself.
+export const carsApi = onRequest({ region: REGION }, async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.status(204).send("");
+  if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+  if (!(await dashboardKey(req))) return res.status(403).json({ error: "Forbidden" });
+  const siteId = String(req.query.site || ""), site = SITES[siteId], action = req.query.action;
+  if (!site) return res.status(404).json({ error: "No such website." });
+  const bucket = getStorage().bucket(BUCKET);
+  const dropPhotos = (photos) => Promise.all((photos || []).filter((p) => p.path).map((p) => bucket.file(p.path).delete({ ignoreNotFound: true }).catch(() => {})));
+  try {
+    if (action === "photo") {
+      const buf = req.rawBody;
+      if (!buf || buf.length > 8e6 || buf[0] !== 0xff || buf[1] !== 0xd8) return res.status(400).json({ error: "That file is not a photo we can use." });
+      const path = `cars/${crypto.randomBytes(12).toString("hex")}.jpg`, token = crypto.randomUUID();
+      try {
+        await bucket.file(path).save(buf, { resumable: false, contentType: "image/jpeg", metadata: { cacheControl: "public, max-age=31536000, immutable", metadata: { firebaseStorageDownloadTokens: token } } });
+      } catch (e) {
+        if (e.code === 404) return res.status(503).json({ error: "Photo storage is not switched on yet." });
+        throw e;
+      }
+      return res.json({ url: `${PHOTO_BASE}${encodeURIComponent(path)}?alt=media&token=${token}`, path });
+    }
+    const d = req.body || {};
+    if (d.id != null && !/^[\w-]{1,64}$/.test(String(d.id))) return res.status(400).json({ error: "Bad car id." });
+    const ref = d.id ? db.collection("cars").doc(String(d.id)) : db.collection("cars").doc();
+    const prev = d.id ? (await ref.get()).data() : null;
+    if (d.id && (!prev || prev.site !== siteId)) return res.status(404).json({ error: "That car no longer exists." });
+    if (action === "save") {
+      const { car, error } = readCar(d, site);
+      if (error) return res.status(400).json({ error });
+      const batch = db.batch();
+      batch.set(ref, { ...car, site: siteId, createdAt: prev?.createdAt || Date.now(), updatedAt: Date.now() });
+      // Only one featured car at a time.
+      if (car.featured) for (const o of await siteCars(siteId)) if (o.featured && o.id !== ref.id) batch.update(db.collection("cars").doc(o.id), { featured: false });
+      await batch.commit();
+      const kept = new Set(car.photos.map((p) => p.path));
+      await dropPhotos((prev?.photos || []).filter((p) => !kept.has(p.path)));
+      return res.json({ ok: true, id: ref.id });
+    }
+    if (action === "delete" && prev) {
+      await ref.delete();
+      await dropPhotos(prev.photos);
+      return res.json({ ok: true });
+    }
+    return res.status(400).json({ error: "Unknown action." });
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
+// Runs in the browser on the car form page. Photos are shrunk before upload so phone pictures stay fast.
+function carFormClient(cfg) {
+  const $ = (id) => document.getElementById(id);
+  const photos = (cfg.car ? cfg.car.photos : []).map((p) => ({ ...p }));
+  const grid = $("photos"), err = $("err"), save = $("save"), del = $("del"), saveLabel = save.textContent;
+  const fail = (msg) => { err.textContent = msg; err.scrollIntoView({ block: "nearest" }); };
+  const busy = (on) => { save.disabled = on; if (del) del.disabled = on; if (!on) save.textContent = saveLabel; };
+  const draw = () => {
+    grid.replaceChildren(...photos.map((p, i) => {
+      const f = document.createElement("figure"), img = document.createElement("img"), x = document.createElement("button");
+      img.src = p.preview || p.url; img.alt = "";
+      x.type = "button"; x.textContent = "\u00d7"; x.setAttribute("aria-label", "Remove photo");
+      x.onclick = () => { photos.splice(i, 1); draw(); };
+      f.append(img, x);
+      if (i === 0) { const c = document.createElement("figcaption"); c.textContent = "Cover"; f.append(c); }
+      return f;
+    }));
+    $("count").textContent = photos.length + " of " + cfg.max;
+  };
+  const shrink = (file) => new Promise((ok, no) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const s = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob((b) => (b ? ok(b) : no(new Error("Could not read " + file.name + "."))), "image/jpeg", 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); no(new Error("Could not read " + file.name + ".")); };
+    img.src = url;
+  });
+  $("file").addEventListener("change", async (e) => {
+    err.textContent = "";
+    for (const file of [...e.target.files]) {
+      if (photos.length >= cfg.max) { fail("A car can have up to " + cfg.max + " pictures."); break; }
+      try { const blob = await shrink(file); photos.push({ blob, preview: URL.createObjectURL(blob) }); draw(); } catch (x) { fail(x.message); }
+    }
+    e.target.value = "";
+  });
+  const post = async (action, body, type) => {
+    const r = await fetch(cfg.api + "&action=" + action, { method: "POST", headers: { "Content-Type": type }, body });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || "Something went wrong. Please try again.");
+    return j;
+  };
+  $("carForm").addEventListener("submit", async (e) => {
+    e.preventDefault(); err.textContent = "";
+    const v = (id) => $(id).value.trim(), pick = (n) => (document.querySelector("input[name=" + n + "]:checked") || {}).value || "";
+    const car = { year: v("year"), make: v("make"), model: v("model"), price: v("price"), miles: v("miles"), moreInfoUrl: v("moreInfoUrl"), category: pick("category"), status: pick("status"), featured: $("featured").checked };
+    if (cfg.car) car.id = cfg.car.id;
+    if (!car.year || !car.make || !car.model) return fail("Year, make and model are required.");
+    if (!car.category) return fail("Pick a category.");
+    if (!photos.length) return fail("Add at least one picture.");
+    busy(true);
+    try {
+      const fresh = photos.filter((p) => !p.url);
+      for (let n = 0; n < fresh.length; n++) {
+        save.textContent = "Uploading picture " + (n + 1) + " of " + fresh.length + "\u2026";
+        const r = await post("photo", fresh[n].blob, "image/jpeg");
+        fresh[n].url = r.url; fresh[n].path = r.path;
+      }
+      save.textContent = "Saving\u2026";
+      await post("save", JSON.stringify({ ...car, photos: photos.map((p) => ({ url: p.url, path: p.path || "", alt: p.alt || "" })) }), "application/json");
+      location.href = cfg.back;
+    } catch (x) { busy(false); fail(x.message); }
+  });
+  if (del) del.addEventListener("click", async () => {
+    if (!confirm("Delete this car? This cannot be undone.")) return;
+    busy(true);
+    try { await post("delete", JSON.stringify({ id: cfg.car.id }), "application/json"); location.href = cfg.back; } catch (x) { busy(false); fail(x.message); }
+  });
+  draw();
+}
+
+// ----- Viewer pages for one website: its car profiles, then the form for one car
+async function siteView(req, res, link, K) {
+  const siteId = String(req.query.site), site = SITES[siteId];
+  if (!site) return res.status(404).send(shell("Not found", `<p>No such website.</p><p><a href="${link({})}">My websites</a></p>`));
+  const list = await siteCars(siteId);
+  const carId = req.query.car ? String(req.query.car) : null;
+
+  if (!carId) {
+    const rows = list.map((c) => {
+      const facts = [c.price == null ? null : "$" + c.price.toLocaleString("en-US"), c.miles == null ? null : c.miles.toLocaleString("en-US") + " mi", cap(c.category)].filter(Boolean).join(" · ");
+      return `<a class="card car" href="${link({ site: siteId, car: c.id })}"><img src="${esc(c.photos?.[0]?.url)}" alt="" loading="lazy"><span class="ci"><span class="n">${esc(carName(c))}</span><br><span class="m">${esc(facts)}</span><br><span class="pill ${c.status.replace(/ /g, "-")}">${esc(cap(c.status))}</span>${c.featured ? `<span class="pill feat">Featured</span>` : ""}</span><span class="m">›</span></a>`;
+    }).join("");
+    return res.send(shell(site.name, `<div class="crumbs"><a href="${link({})}">My websites</a> › ${esc(site.name)}</div>
+      <h1>${esc(site.name)}</h1><p class="sub"><a class="lnk" href="${site.url}" target="_blank" rel="noopener">Open the website</a></p>
+      <div class="sechead"><h2>Car profiles</h2><a class="btn" href="${link({ site: siteId, car: "new" })}">Add a car</a></div>
+      <p class="sub">${list.length} car${list.length === 1 ? "" : "s"}. Pick one to edit it.</p>${rows}
+      <div class="sechead"><h2>Website tracking</h2></div><p class="sub">Not set up yet.</p>`));
+  }
+
+  const car = carId === "new" ? null : list.find((c) => c.id === carId);
+  if (carId !== "new" && !car) return res.status(404).send(shell("Not found", `<p>No such car.</p><p><a href="${link({ site: siteId })}">${esc(site.name)}</a></p>`));
+  const title = car ? carName(car) : "New car";
+  const val = (k) => esc(car?.[k] ?? "");
+  const field = (id, label, extra = "") => `<label class="f">${label}<input type="text" id="${id}" value="${val(id)}" autocomplete="off" ${extra}></label>`;
+  const segs = (name, options, current) => `<div class="segs">${options.map((o) => `<label class="seg"><input type="radio" name="${name}" value="${o}"${o === current ? " checked" : ""}><span>${cap(o)}</span></label>`).join("")}</div>`;
+  const cfg = { api: `https://${REGION}-${PROJECT}.cloudfunctions.net/carsApi?key=${K}&site=${encodeURIComponent(siteId)}`, back: link({ site: siteId }), max: MAX_PHOTOS, car: car ? { id: car.id, photos: car.photos || [] } : null };
+  res.send(shell(title, `<div class="crumbs"><a href="${link({})}">My websites</a> › <a href="${link({ site: siteId })}">${esc(site.name)}</a> › ${esc(title)}</div>
+    <h1>${esc(title)}</h1><p class="sub">${car ? "Change anything below, then save." : "Fill this in and the car shows up on the website."}</p>
+    <form class="cf" id="carForm" novalidate>
+      <div class="row">${field("year", "Year", 'inputmode="numeric" maxlength="4" placeholder="2018"')}${field("make", "Make", 'placeholder="Toyota"')}${field("model", "Model", 'placeholder="RAV4"')}</div>
+      <div class="row">${field("price", "Price", 'inputmode="numeric" placeholder="15394"')}${field("miles", "Mileage", 'inputmode="numeric" placeholder="118435"')}</div>
+      ${field("moreInfoUrl", "More info link", 'inputmode="url" autocapitalize="none" placeholder="https://www.autofavors.com/inventory/..."')}
+      <div><div class="lab">Category</div>${segs("category", CATEGORIES, car?.category)}</div>
+      <div><div class="lab">Status</div>${segs("status", STATUSES, car?.status || "available")}</div>
+      <div><label class="sw"><input type="checkbox" id="featured"${car?.featured ? " checked" : ""}><span class="tr"></span><span>Featured car</span></label><p class="hint">The featured car is the big photo on the home page. Only one car can be featured at a time.</p></div>
+      <div><div class="lab">Pictures (<span id="count"></span>)</div><div class="pgrid" id="photos"></div><label class="addp">Add pictures<input type="file" id="file" accept="image/*" multiple></label><p class="hint">At least one. The first picture is the cover.</p></div>
+      <p class="err" id="err" role="alert"></p>
+      <div class="actions"><button class="btn" id="save">Save car</button>${car ? `<button type="button" class="del" id="del">Delete car</button>` : ""}</div>
+    </form>
+    <script>(${carFormClient.toString()})(${JSON.stringify(cfg).replace(/</g, "\\u003c")});</script>`));
+}
